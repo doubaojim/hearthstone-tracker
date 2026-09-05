@@ -995,26 +995,6 @@ function showToast(msg){
 function showAutoStartBanner(isBG){
   showToast(isBG?'已检测到游戏开始，已进入酒馆战棋记牌':'已检测到游戏开始，已自动开始对局');
 }
-function parseStartParams(){
-  try{
-    var qs=new URLSearchParams(location.search);
-    if(qs.get('hs')==='start'){
-      var mode=qs.get('mode')||qs.get('m');
-      var cls=qs.get('cls');
-      if(mode==='bg'||mode==='battlegrounds'){
-        state.bg.hero=null; state.bg.tavern=[]; state.bg.owned=[]; state.bg.tribes={};
-        state.bg.turn=1; state.bg.gold=3; state.bg.tier=1; state.bg.hp=40;
-        state.tab='battlegrounds';
-      }else{
-        if(cls && classes.indexOf(cls)>-1) state.setup.myClass=cls;
-        startMatch();
-        state.tab='constructed';
-      }
-      showAutoStartBanner(mode==='bg'||mode==='battlegrounds');
-      history.replaceState(null,'',location.pathname);
-    }
-  }catch(e){}
-}
 /* 使用当前卡组进入追踪 */
 function useDeck(){
   cardPool = demoDeck.map(function(c){ return {name:c.name,cost:c.cost,tribe:'',total:c.count}; });
@@ -1025,19 +1005,31 @@ function useDeck(){
 }
 
 var newMatchPrompted=false;
-function doStartNewMatch(from){
-  state.tab='constructed';        /* 切到对局页并开始新局 */
-  startMatch();
+function doStartNewMatch(from, isBG){
+  if(isBG){
+    state.bg.hero=null; state.bg.tavern=[]; state.bg.owned=[]; state.bg.tribes={};
+    state.bg.turn=1; state.bg.gold=3; state.bg.tier=1; state.bg.hp=40;
+    state.tab='battlegrounds';
+  }else{
+    state.tab='constructed';        /* 切到对局页并开始新局 */
+    startMatch();
+  }
   var s=document.getElementById('screen');
   if(s){ var b=document.getElementById('newMatchBanner'); if(b) b.remove(); }
+  showToast(isBG?'已检测到游戏开始，已进入酒馆战棋记牌':'已检测到游戏开始，已自动开始对局');
   render();
 }
-/* 通道一：快捷指令直接打开带参 URL（?hs=start） */
+/* 通道一：快捷指令直接打开带参 URL（?hs=start[&mode=bg][&cls=法师]） */
 function signalFromURL(){
   var m=location.search.match(/[?&]hs=(start|stop)/i);
   if(!m) return false;
   history.replaceState(null,'',location.pathname+location.hash);
-  if(m[1].toLowerCase()==='start'){ doStartNewMatch('快捷指令'); }
+  if(m[1].toLowerCase()==='start'){
+    var qs=new URLSearchParams(location.search);
+    var md=qs.get('mode')||qs.get('m'), cls=qs.get('cls');
+    if(cls && classes.indexOf(cls)>-1) state.setup.myClass=cls;
+    doStartNewMatch('快捷指令', md==='bg'||md==='battlegrounds');
+  }
   return true;
 }
 /* 通道二：快捷指令写入剪贴板标记 HS_START，切回前台时读取 */
@@ -1077,9 +1069,8 @@ document.addEventListener('visibilitychange', function(){
 load();
 loadCardDB(); /* 启动时后台自动连接/更新传统卡牌数据 */
 loadBGDB();   /* 启动时后台自动连接/更新酒馆战棋数据 */
-parseStartParams(); /* 识别快捷指令的"游戏开始"信号 */
+signalFromURL(); /* 快捷指令带参打开时自动开始新对局（?hs=start） */
 render();
-signalFromURL(); /* 快捷指令带参打开时自动开始新对局 */
 
 /* Service Worker 注册（不支持时静默降级） */
 if('serviceWorker' in navigator){
