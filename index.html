@@ -297,6 +297,8 @@ var tribes = ['野兽','机械','龙','鱼人','海盗','元素','恶魔','亡�
 var state = {
   tab:'constructed',
   matchActive:false,
+  inMatch:false,
+  matchMode:'standard',
   setup:{ myClass:'法师', oppClass:'法师' },
   match:{ turn:1, mana:1, manaMax:1, myDeck:30, myHand:0, oppDeck:30, oppHand:0, myFatigue:0, oppFatigue:0, myGrave:0, oppGrave:0, myPlayed:[], oppPlayed:[], oppSeen:[] },
   trackers: cardPool.map(function(c){ return {name:c.name,cost:c.cost,tribe:c.tribe,total:c.total,deck:c.total,hand:0,played:0}; }),
@@ -552,6 +554,45 @@ function stat(t,v,c){ return '<div class="stat"><div class="v" style="color:'+(c
 function addTo(list,name,cost){ var f=list.find(function(x){return x.name===name;}); if(f){f.count++;}else{list.push({name:name,cost:cost,count:1});} }
 
 /* ============================================================
+   对局模式选择 / 全屏记录界面
+   ============================================================ */
+function modeSelectView(){
+  var h='<div class="panel">';
+  h += '<div class="panel-title"><span class="dot" style="background:var(--gold)"></span>选择对局模式</div>';
+  h += '<div style="font-size:11px;color:var(--muted);margin-bottom:14px;">选择模式后开始对局，进入全屏记录界面，左上角可返回。</div>';
+  var modes=[
+    {id:'standard',name:'传统模式',desc:'标准规则 · 30张卡组',icon:'⚔️',bg:'rgba(217,179,108,.1)'},
+    {id:'wild',name:'狂野模式',desc:'全卡池 · 狂野规则',icon:'🔥',bg:'rgba(234,102,104,.1)'},
+    {id:'battlegrounds',name:'酒馆模式',desc:'酒馆战棋 · 自走棋',icon:'🍺',bg:'rgba(88,166,255,.1)'}
+  ];
+  modes.forEach(function(m){
+    h += '<div onclick="startMatchMode(\''+m.id+'\')" style="display:flex;align-items:center;gap:12px;padding:14px;border-radius:12px;margin-bottom:10px;background:'+m.bg+';border:1px solid var(--line2);cursor:pointer;">';
+    h += '<div style="width:42px;height:42px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:22px;background:rgba(255,255,255,.06);">'+m.icon+'</div>';
+    h += '<div style="flex:1;"><div style="font-size:14px;font-weight:600;">'+m.name+'</div><div style="font-size:10px;color:var(--muted);margin-top:2px;">'+m.desc+'</div></div>';
+    h += '<div style="font-size:11px;color:var(--gold2);font-weight:600;">开始 →</div>';
+    h += '</div>';
+  });
+  h += '</div>';
+  return h;
+}
+function startMatchMode(mode){
+  state.matchMode=mode;
+  if(mode==='battlegrounds'){
+    state.inMatch=true; state.tab='constructed'; save(); render();
+    return;
+  }
+  var m=state.match;
+  m.turn=1;m.mana=1;m.manaMax=1;m.myDeck=30;m.myHand=0;m.oppDeck=30;m.oppHand=0;
+  m.myFatigue=0;m.oppFatigue=0;m.myGrave=0;m.oppGrave=0;m.myPlayed=[];m.oppPlayed=[];m.oppSeen=[];
+  state.trackers=cardPool.map(function(c){return{name:c.name,cost:c.cost,tribe:c.tribe,total:c.total,deck:c.total,hand:0,played:0};});
+  state.matchActive=true; state.inMatch=true; state.tab='constructed';
+  newMatchPrompted=false; save(); render();
+}
+function exitMatch(){
+  state.inMatch=false; state.matchActive=false; state.tab='constructed'; save(); render();
+}
+
+/* ============================================================
    传统对局
    ============================================================ */
 function setupView(){
@@ -583,17 +624,20 @@ function startMatch(){
   m.myFatigue=0; m.oppFatigue=0; m.myGrave=0; m.oppGrave=0; m.myPlayed=[]; m.oppPlayed=[]; m.oppSeen=[];
   m.myFatigue=0; m.oppFatigue=0; m.myPlayed=[]; m.oppPlayed=[]; m.oppSeen=[];
   state.trackers = cardPool.map(function(c){ return {name:c.name,cost:c.cost,tribe:c.tribe,total:c.total,deck:c.total,hand:0,played:0}; });
-  state.matchActive=true; newMatchPrompted=false; save(); render();
+  state.matchActive=true; state.inMatch=true; newMatchPrompted=false; save(); render();
 }
 function constructedView(){
-  if(!state.matchActive){ return setupView(); }
+  if(state.inMatch && state.matchMode==='battlegrounds'){ return battlegroundsView(); }
+  if(!state.matchActive){ return modeSelectView(); }
   var m = state.match;
   var h='';
-  h += '<div class="panel" style="padding:10px 14px;display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">';
+  h += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">';
+  h += '<button onclick="exitMatch()" style="flex-shrink:0;padding:8px 12px;background:rgba(255,255,255,.06);border:1px solid var(--line2);border-radius:10px;color:var(--text);font-size:12px;cursor:pointer;display:flex;align-items:center;gap:4px;"><svg viewBox="0 0 24 24" fill="none" width="14" height="14"><path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>返回</button>';
+  h += '<div class="panel" style="flex:1;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;margin:0;min-width:0;">';
   h += '<span class="pill green">'+esc(state.setup.myClass)+'</span>';
-  h += '<span style="font-size:11px;color:var(--muted);">第 '+m.turn+' 回合</span>';
+  h += '<span style="font-size:11px;color:var(--muted);white-space:nowrap;">'+(state.matchMode==='wild'?'狂野':'传统')+' · 第 '+m.turn+' 回合</span>';
   h += '<span class="pill red">'+esc(state.setup.oppClass)+'</span>';
-  h += '</div>';
+  h += '</div></div>';
 
   h += '<div class="stat-row">';
   h += stat('我方牌库', m.myDeck, 'var(--green)');
@@ -673,8 +717,8 @@ function constructedView(){
   return h;
 }
 function settle(res){
-  record('传统', state.setup.myClass+' vs '+state.setup.oppClass, res, state.match.turn);
-  state.matchActive=false; render();
+  record(state.matchMode==='wild'?'狂野':'传统', state.setup.myClass+' vs '+state.setup.oppClass, res, state.match.turn);
+  state.matchActive=false; state.inMatch=false; render();
 }
 function draw(){
   var m=state.match;
@@ -1014,6 +1058,12 @@ function getFilteredHeroes(){
 function battlegroundsView(){
   var b = state.bg;
   var h='';
+  if(state.inMatch){
+    h += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">';
+    h += '<button onclick="exitMatch()" style="flex-shrink:0;padding:8px 12px;background:rgba(255,255,255,.06);border:1px solid var(--line2);border-radius:10px;color:var(--text);font-size:12px;cursor:pointer;display:flex;align-items:center;gap:4px;"><svg viewBox="0 0 24 24" fill="none" width="14" height="14"><path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>返回</button>';
+    h += '<div style="flex:1;font-size:13px;font-weight:600;color:var(--gold2);">酒馆战棋 · 第 '+b.turn+' 回合</div>';
+    h += '</div>';
+  }
   if(!b.hero){
     var hlist=getFilteredHeroes();
     var per=24, page=state.bg.heroPage||1;
@@ -1263,6 +1313,7 @@ function bgSettle(res){
   record('酒馆战棋', state.bg.hero?state.bg.hero.name:'酒馆对局', res, state.bg.turn);
   state.bg.hero=null; state.bg.tavern=[]; state.bg.owned=[]; state.bg.tribes={};
   state.bg.opponents=[]; state.bg.oppIdx=0; state.bg.boardShot=null; state.bg.minSearch='';
+  state.inMatch=false; state.tab='constructed';
   render();
 }
 
@@ -1402,6 +1453,16 @@ function render(){
   document.querySelectorAll('#tabbar button').forEach(function(b){
     b.classList.toggle('active', b.getAttribute('data-tab')===state.tab);
   });
+  /* 全屏对局记录界面：隐藏底部导航与顶部头部，左上角返回按钮替代 */
+  var tabbar=document.getElementById('tabbar');
+  var header=document.querySelector('.app-header');
+  if(state.inMatch){
+    if(tabbar) tabbar.style.display='none';
+    if(header) header.style.display='none';
+  } else {
+    if(tabbar) tabbar.style.display='';
+    if(header) header.style.display='';
+  }
 }
 document.getElementById('tabbar').addEventListener('click',function(e){
   var btn=e.target.closest('button[data-tab]');
@@ -1553,9 +1614,9 @@ function doStartNewMatch(from, isBG){
   if(isBG){
     state.bg.hero=null; state.bg.tavern=[]; state.bg.owned=[]; state.bg.tribes={};
     state.bg.turn=1; state.bg.gold=3; state.bg.tier=1; state.bg.hp=40;
-    state.tab='battlegrounds';
+    state.tab='constructed'; state.matchMode='battlegrounds'; state.inMatch=true;
   }else{
-    state.tab='constructed';        /* 切到对局页并开始新局 */
+    state.tab='constructed'; state.matchMode='standard';
     startMatch();
   }
   var s=document.getElementById('screen');
