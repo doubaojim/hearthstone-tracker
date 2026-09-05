@@ -949,9 +949,37 @@ document.getElementById('modalMask').addEventListener('click',function(e){
 });
 function closeModal(){ document.getElementById('modalMask').classList.remove('show'); }
 
-/* 回到前台时提示开始新对局（iOS 无法感知炉石 App 启动，退而切回本页时触发） */
+/* 快捷指令联动：同步游戏开始（iOS 无法读炉石游戏数据，改为信号桥接） */
 var newMatchPrompted=false;
-document.addEventListener('visibilitychange', function(){
+function doStartNewMatch(from){
+  state.tab='constructed';        /* 切到对局页并开始新局 */
+  startMatch();
+  var s=document.getElementById('screen');
+  if(s){ var b=document.getElementById('newMatchBanner'); if(b) b.remove(); }
+  render();
+}
+/* 通道一：快捷指令直接打开带参 URL（?hs=start） */
+function signalFromURL(){
+  var m=location.search.match(/[?&]hs=(start|stop)/i);
+  if(!m) return false;
+  history.replaceState(null,'',location.pathname+location.hash);
+  if(m[1].toLowerCase()==='start'){ doStartNewMatch('快捷指令'); }
+  return true;
+}
+/* 通道二：快捷指令写入剪贴板标记 HS_START，切回前台时读取 */
+function readClipboardSignal(){
+  if(!navigator.clipboard || !navigator.clipboard.readText) return maybeNewMatchBanner();
+  navigator.clipboard.readText().then(function(t){
+    t=(t||'');
+    if(t.indexOf('HS_START')===0){
+      if(navigator.clipboard.writeText) navigator.clipboard.writeText('').catch(function(){});
+      doStartNewMatch('快捷指令');
+    } else {
+      maybeNewMatchBanner();
+    }
+  }).catch(function(){ maybeNewMatchBanner(); });
+}
+function maybeNewMatchBanner(){
   if(!document.hidden && !state.matchActive && !state.bg.hero && !newMatchPrompted){
     newMatchPrompted=true;
     var screen=document.getElementById('screen');
@@ -964,12 +992,19 @@ document.addEventListener('visibilitychange', function(){
       '<button class="btn gray" style="padding:6px 10px;font-size:11px;" onclick="this.closest(\'#newMatchBanner\').remove();">暂不</button>';
     screen.insertBefore(b, screen.firstChild);
   }
+}
+document.addEventListener('visibilitychange', function(){
+  if(!document.hidden){
+    if(navigator.clipboard && navigator.clipboard.readText){ readClipboardSignal(); }
+    else { maybeNewMatchBanner(); }
+  }
 });
 
 load();
 loadCardDB(); /* 启动时后台自动连接/更新传统卡牌数据 */
 loadBGDB();   /* 启动时后台自动连接/更新酒馆战棋数据 */
 render();
+signalFromURL(); /* 快捷指令带参打开时自动开始新对局 */
 
 /* Service Worker 注册（不支持时静默降级） */
 if('serviceWorker' in navigator){
