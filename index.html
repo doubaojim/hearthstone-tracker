@@ -392,6 +392,7 @@ function connectCardDB(){
 var DECK_URL='decks.json';
 var deckDB={loaded:false,decks:[],lastUpdated:null};
 var deckClsFilter='全部';
+var deckFmtFilter='全部'; /* 卡组库格式筛选：全部/传统(标准)/狂野 */
 function applyDeckDB(data){
   deckDB.decks = Array.isArray(data.decks)?data.decks:[];
   deckDB.lastUpdated = data.updated || null;
@@ -726,14 +727,22 @@ function decksView(){
     h += '<div id="deckDBStatus"></div>';
     h += '<div style="font-size:10px;color:var(--muted);margin-top:8px;">数据源为公开主流卡组（炉石盒子卡组库为私有无接口，故采用同生态公开源），每日自动更新。</div>';
   }else{
-    var dkcls=['全部'];
-    deckDB.decks.forEach(function(d){ if(dkcls.indexOf(d.class)<0) dkcls.push(d.class); });
+    var dkcls=['全部'].concat(['战士','萨满祭司','潜行者','圣骑士','猎人','德鲁伊','术士','法师','牧师','恶魔猎手','死亡骑士']);
     h += '<div class="tribe-wrap" style="margin-bottom:8px;">';
     dkcls.forEach(function(k){
       h += '<button class="tribe '+(deckClsFilter===k?'on':'')+'" onclick="deckClsFilter=\''+k+'\';render();">'+esc(k)+'</button>';
     });
     h += '</div>';
-    var dlist=deckDB.decks.filter(function(d){ return deckClsFilter==='全部'||d.class===deckClsFilter; });
+    h += '<div class="seg" style="margin-bottom:8px;">';
+    [['全部','全部'],['传统','标准'],['狂野','狂野']].forEach(function(p){
+      h += '<button class="'+(deckFmtFilter===p[0]?'on':'')+'" onclick="deckFmtFilter=\''+p[0]+'\';render();">'+p[0]+'</button>';
+    });
+    h += '</div>';
+    var dlist=deckDB.decks.filter(function(d){
+      var okCls = deckClsFilter==='全部'||d.class===deckClsFilter;
+      var okFmt = deckFmtFilter==='全部' || (deckFmtFilter==='传统' ? d.format==='标准' : d.format==='狂野');
+      return okCls && okFmt;
+    });
     if(dlist.length===0){ h += '<div style="font-size:11px;color:var(--muted);">无匹配卡组</div>'; }
     dlist.forEach(function(d){
       h += '<div class="card-row">';

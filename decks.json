@@ -1,6 +1,6 @@
 {
  "source": "旅法师营地、网易大神等公开卡组文章（每日自动抓取校验）",
- "note": "炉石盒子卡组库为私有无接口，本库从旅法师营地/网易大神公开攻略文章抓取套牌代码，解码校验为30张标准卡组；每日自动更新。",
+ "note": "炉石盒子卡组库为私有无接口，本库从旅法师营地/网易大神公开攻略文章抓取套牌代码，解码校验为标准/狂野卡组；每日自动更新。",
  "updated": "2026-09-05",
  "decks": [
   {
@@ -244,10 +244,18 @@
    "date": "2026-09-05"
   },
   {
-   "name": "雅贼",
+   "name": "阿雅贼",
    "class": "潜行者",
    "format": "标准",
    "code": "AAECAaIHBoaoB4eoB4ioB+WvB6XYB4jZBwyRnwT3nwTZogbBlweSpAfLtge0wQfFwQfVxQek2AeR2QeN2gcAAA==",
+   "source": "旅法师营地 36.4.2 标准卡组推荐",
+   "date": "2026-09-05"
+  },
+  {
+   "name": "拉法姆 术",
+   "class": "术士",
+   "format": "标准",
+   "code": "AAECAf0GDs2eBtGCB4ilB4mlB4qlB5GlB5OlB5SlB5WlB5alB5elB5qlB63ZB9vgBw2PnwSxnwSpiAfiiQeEmQeqrQfQsgfXvgfgvgex2Qe32QeN3AeO3AcAAA==",
    "source": "旅法师营地 36.4.2 标准卡组推荐",
    "date": "2026-09-05"
   },
@@ -265,6 +273,110 @@
    "format": "标准",
    "code": "AAECAaoIAtDbB9/lBw6vnwTRmwfQnQfwqgf8rQe8sQfLtgfDwAfTwAfH2wfK2wfN2wfa3wfg9gcAAA==",
    "source": "旅法师营地 36.4.2 标准卡组推荐",
+   "date": "2026-09-05"
+  },
+  {
+   "name": "克隆机械骑",
+   "class": "圣骑士",
+   "format": "狂野",
+   "code": "AAEBAZ8FBJ+3A/mkBMekBp3dBw2l9QKHrgOStQTUvQTa0wSEpQXZ0AW5/gXi8Qa/+Qa6lgfa4gea/AcAAQTX/gKd3QfzswbHpAb2swbHpAaS7wbHpAYAAA==",
+   "source": "旅法师营地 狂野高分段",
+   "date": "2026-09-05"
+  },
+  {
+   "name": "任务超生瞎",
+   "class": "恶魔猎手",
+   "format": "狂野",
+   "code": "AAEBAea5AwiRvAL39gOw+QPEuAb8wAaKqgeSqgeTqgcLqbwD8skDlc0DztID9fYDx6wEnJoG38AGsesGkr8Hk+gHAAA=",
+   "source": "旅法师营地 狂野高分段",
+   "date": "2026-09-05"
+  },
+  {
+   "name": "钩牙贼",
+   "class": "潜行者",
+   "format": "狂野",
+   "code": "AAEBAaIHCIUXkbwCt7MEr7YEzKAF/cQF0Z4Gs6kGC+0C9bsC890D958E16MFv/cF7p4G/KUGracGoLMGwZcHAAED4PoC/cQF5dED/cQFquoG/cQFAAA=",
+   "source": "旅法师营地 狂野高分段",
+   "date": "2026-09-05"
+  },
+  {
+   "name": "奥丁百甲战",
+   "class": "战士",
+   "format": "狂野",
+   "code": "AAEBAQcQ6awCjs4C9s8Cj84D9tYD5bAEl+8E/cQFpfYFofsF0Z4G7KkGusEGquoGw4MH7o8HDM/nAvmMBIy3BO/OBI7UBMSSBYuUBp+eBo6/BuqnB/yvB5TZBwABA/T1Av3EBdGeBv3EBeapBv3EBQAA",
+   "source": "旅法师营地 狂野高分段",
+   "date": "2026-09-05"
+  },
+  {
+   "name": "开门法",
+   "class": "法师",
+   "format": "狂野",
+   "code": "AAEBAf0EEvoO0MECoM4C9KsD5dEDne4DoIoE5bAEuNkEqd4El+8E/cQF95sG+JsGquoGqfUGw4MH25cHC8ABywTK3gTgwwXQ+AWQgwbRnga0pwbCvgaa9AazhwcAAQPl0QP9xAWTmwf9xAXqrAf9xAUAAA==",
+   "source": "旅法师营地 狂野高分段",
+   "date": "2026-09-05"
+  },
+  {
+   "name": "大哥术",
+   "class": "术士",
+   "format": "狂野",
+   "code": "AAEBAf0GBvoOj4ID5bAEl+8EnrgGrdkHEdwKnBCnzgLy0AKVzQPXzgPG+QOskQTO5AWt6QXI+AXO+gXjgAaJtQbDuAbgvgeN3AcAAA==",
+   "source": "旅法师营地 狂野高分段",
+   "date": "2026-09-05"
+  },
+  {
+   "name": "疲劳任务术",
+   "class": "术士",
+   "format": "狂野",
+   "code": "AAEBAf0GCPoOj4ID/KMDlc0DhPsDrOkFyPgFrdkHC7W5A9fOA+OABoSeBtOeBvahBvejBom1BsnkBoSZB43cBwAA",
+   "source": "旅法师营地 狂野高分段",
+   "date": "2026-09-05"
+  },
+  {
+   "name": "宇宙熔岩战",
+   "class": "战士",
+   "format": "狂野",
+   "code": "AAEBAQcoS8MW9s8Cz+cC/KMDuLkDj84Dk9AD9tYD+YwE+owElpUE5bAEjLYEjLcE784EjtQEuNkEl+8E4qQF/cQFofsFi5QGn54G0Z4Gx6QGkagGr6gG7KkG0LAG1boGjr8G+skG88oGquoG7o8H25cH6qcH/K8HlNkHAAABBu/OBP3EBfeXBv3EBdGeBv3EBfWzBsekBvezBsekBujeBsekBgAA",
+   "source": "旅法师营地 狂野高分段",
+   "date": "2026-09-05"
+  },
+  {
+   "name": "熔岩奥丁战",
+   "class": "战士",
+   "format": "狂野",
+   "code": "AAEBAQcM9s8Cj84D9tYDxfUD5bAEjtQExJIFpfYFyPgFquoGw4MHstgHCfmMBIy3BO/OBIuUBp+eBoegBo6/BuqnB/yvBwAA",
+   "source": "旅法师营地 狂野高分段",
+   "date": "2026-09-05"
+  },
+  {
+   "name": "类星体贼",
+   "class": "潜行者",
+   "format": "狂野",
+   "code": "AAEBAaIHCPgHgKYD958EwaEFv/cFracGpdgHr98HC/W7AufdA470A7ezBNW2BNrDBe6eBvLJBvLnBuTqBsGXBwAA",
+   "source": "旅法师营地 狂野高分段",
+   "date": "2026-09-05"
+  },
+  {
+   "name": "自残术",
+   "class": "术士",
+   "format": "狂野",
+   "code": "AAEBAf0GDPoO+NACj4ID+rADm80D5bAE/cQFyPgF0J4GlbMGhJkHrdkHCdwKlc0D184DwdEDzvoFxJ4Gw7gGyeQGjdwHAAEDvxb9xAX7sAP9xAWNtQT9xAUAAA==",
+   "source": "旅法师营地 狂野高分段",
+   "date": "2026-09-05"
+  },
+  {
+   "name": "爆牌德",
+   "class": "德鲁伊",
+   "format": "狂野",
+   "code": "AAEBAZICEuQIxf0C6LoDr4AEiYsE5bAEuNkEl+8E/cQFn/MF2/oFl6AG76kGpbsG88oGquoG25cH2cQHC+kBig6e0gKP9gKK4AOuwASE7wTTngaaoAaJoQaxzgYAAQPRngb9xAWXoAb9xAXp7Qb9xAUAAA==",
+   "source": "旅法师营地 狂野高分段",
+   "date": "2026-09-05"
+  },
+  {
+   "name": "暗牧",
+   "class": "牧师",
+   "format": "狂野",
+   "code": "AAEBAa0GCPoO9xORvAK79wOX7wS5xAX9xAXX0gYQoQSRD7q2A633A4aDBd2kBa3pBcj4BYWOBtCeBsihBsSoBte6BtXBBuTqBqyUBwABA4f3A/3EBcChBv3EBbLFB/3EBQAA",
+   "source": "旅法师营地 狂野高分段",
    "date": "2026-09-05"
   }
  ]
