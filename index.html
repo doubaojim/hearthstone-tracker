@@ -341,20 +341,31 @@ var cardDB = { loaded:false, list:[], byDbf:{}, byName:{}, lastUpdated:null };
 var clsMap={MAGE:'法师',HUNTER:'猎人',PRIEST:'牧师',WARLOCK:'术士',ROGUE:'潜行者',DRUID:'德鲁伊',
   SHAMAN:'萨满祭司',WARRIOR:'战士',PALADIN:'圣骑士',DEMONHUNTER:'恶魔猎手',DEATHKNIGHT:'死亡骑士',NEUTRAL:'中立'};
 var SET_NAMES={
-  'CORE':'核心','VANILLA':'经典','EXPERT1':'经典','LEGACY':'经典','CORE_HIDDEN':'核心(隐藏)',
-  'THE_BARRENS':'贫瘠之地','THE_SUNKEN_CITY':'沉没之城','ALTERAC_VALLEY':'奥特兰克的决裂',
+  'CORE':'核心系列','VANILLA':'经典','EXPERT1':'经典','LEGACY':'经典·遗产','CORE_HIDDEN':'核心系列',
+  'THE_BARRENS':'贫瘠之地的锤炼','THE_SUNKEN_CITY':'探寻沉没之城','ALTERAC_VALLEY':'奥特兰克的决裂',
   'STORMWIND':'暴风城下的集结','DARKMOON_FAIRE':'暗月马戏团','LOOTAPALOOZA':'狗头人与地下世界',
   'GILNEAS':'女巫森林','TITANS':'泰坦诸神','BOOMSDAY':'砰砰计划','BLACK_TEMPLE':'外域的灰烬',
   'SCHOLOMANCE':'通灵学园','RETURN_OF_THE_LICH_KING':'巫妖王的进军','REVENDRETH':'纳斯利亚堡的悬案',
-  'ISLAND_VACATION':'荒芜之地','THE_LOST_CITY':'探寻沉没之城','WHIZBANGS_WORKSHOP':'威兹班的工坊',
-  'EMERALD_DREAM':'翡翠梦境','SPACE':'深空之旅','TIME_TRAVEL':'时光之穴','WILD_WEST':'决战荒芜之地',
-  'BATTLE_OF_THE_BANDS':'传奇音乐节','CATACLYSM':'大灾变','ICECROWN':'冰封王座的骑士',
-  'YEAR_OF_THE_DRAGON':'巨龙年','LOE':'探险者协会','DRAGONS':'巨龙降临','DALARAN':'达拉然大劫案',
-  'ULDUM':'奥丹姆奇兵','SAVIORS_OF_ULDUM':'奥丹姆奇兵','TROLL':'乱斗','TB':'乱斗',
+  'WILD_WEST':'决战荒芜之地','WHIZBANGS_WORKSHOP':'威兹班的工坊','ISLAND_VACATION':'胜地历险记',
+  'EMERALD_DREAM':'漫游翡翠梦境','SPACE':'深暗领域','TIME_TRAVEL':'穿越时间流','THE_LOST_CITY':'安戈洛龟途',
+  'BATTLE_OF_THE_BANDS':'传奇音乐节','CATACLYSM':'大地的裂变','ESCAPEFROM_VIOLET_HOLD':'逃离紫罗兰监狱',
+  'WONDERS':'奇闻卡牌','EVENT':'活动卡牌','UNGORO':'勇闯安戈洛','OG':'上古之神的低语','TGT':'冠军的试炼',
+  'GANGS':'龙争虎斗加基森','GVG':'地精大战侏儒','KARA':'卡拉赞之夜','LOE':'探险者协会','BRM':'黑石山的火焰',
+  'NAXX':'纳克萨玛斯的诅咒','ICECROWN':'冰封王座的骑士','DALARAN':'达拉然大劫案','ULDUM':'奥丹姆奇兵',
+  'DRAGONS':'巨龙降临','YEAR_OF_THE_DRAGON':'巨龙年','TROLL':'拉斯塔哈的大乱斗',
+  'PATH_OF_ARTHAS':'阿尔萨斯之路','DEMON_HUNTER_INITIATE':'恶魔猎手初始',
   'LETTUCE':'佣兵战纪','BATTLEGROUNDS':'酒馆战棋','HERO_SKINS':'英雄皮肤','CREDITS':'制作人员'
 };
 function setName(id){ return SET_NAMES[id]||id||'未知'; }
 function stripHTML(s){ return String(s||'').replace(/<[^>]+>/g,'').replace(/\s+/g,' ').trim(); }
+/* 补全缺失卡牌：收藏卡查不到时回退到衍生牌库，确保任意卡名都能取到简介/系列 */
+function cardLookup(name){
+  if(cardDB.loaded && cardDB.byName && cardDB.byName[name]) return cardDB.byName[name];
+  if(derivedDB.list && derivedDB.list.length){
+    for(var _i=0;_i<derivedDB.list.length;_i++){ if(derivedDB.list[_i].name===name) return derivedDB.list[_i]; }
+  }
+  return null;
+}
 function applyCardDB(list){
   cardDB.list=list; cardDB.byDbf={}; cardDB.byName={};
   list.forEach(function(c){
@@ -505,7 +516,7 @@ function openImportSheet(){
   var sheet=document.getElementById('sheet');
   sheet.innerHTML =
     '<h4>从盒子 / HDT 导入套牌代码</h4>'+
-    '<div style="font-size:11px;color:var(--muted);margin-bottom:8px;">在炉石盒子或 HDT 中复制卡组代码，粘贴到下方，用真实卡牌库解析成卡组。</div>'+
+    '<div style="font-size:11px;color:var(--muted);margin-bottom:8px;">在炉石盒子或 HDT 中复制卡组代码，粘贴到下方，用卡牌库解析成卡组。</div>'+
     '<textarea id="deckCodeInput" style="width:100%;height:90px;background:#0F131A;color:var(--text);border:1px solid var(--line2);border-radius:10px;padding:10px;font-size:11px;font-family:ui-monospace,monospace;" placeholder="AAECAZ8F..."></textarea>'+
     '<div id="deckResult"></div>'+
     '<button class="btn primary block" style="margin-top:10px;" onclick="doImportDeckCode()">解析并导入</button>';
@@ -818,7 +829,7 @@ function decksView(){
     h += '<div style="font-size:11px;color:var(--muted);">未选择卡组，暂无卡牌列表。</div>';
   }else{
     sorted.forEach(function(c){
-      var _cc = cardDB.loaded ? cardDB.byName[c.name] : null;
+      var _cc = cardLookup(c.name);
       var _txt = (_cc && _cc.text) ? stripHTML(_cc.text) : '';
       h += '<div class="card-row">'+manaGem(c.cost)+
         '<div class="info"><div class="nm">'+esc(c.name)+'</div><div class="sub">'+(c.cost==null?'?':c.cost)+' 费</div></div>'+
@@ -833,7 +844,7 @@ function decksView(){
   return h;
 }
 
-/* 真实卡牌库浏览（连接后可用） */
+/* 卡牌库浏览（连接后可用） */
 var derivedDB={loaded:false,loading:false,list:[]};
 function ensureDerived(){
   if(derivedDB.loaded||derivedDB.loading) return;
@@ -842,7 +853,7 @@ function ensureDerived(){
     .then(function(all){
       var known={}; cardDB.list.forEach(function(c){ if(c.dbfId!=null) known[c.dbfId]=1; });
       derivedDB.list=all.filter(function(c){ return c.dbfId!=null && c.name && !known[c.dbfId]; })
-        .map(function(c){ return {name:c.name,cardClass:c.cardClass||'NEUTRAL',cost:c.cost!=null?c.cost:0,dbfId:c.dbfId}; });
+        .map(function(c){ return {name:c.name,cardClass:c.cardClass||'NEUTRAL',cost:c.cost!=null?c.cost:0,dbfId:c.dbfId,set:c.set||'',text:c.text||''}; });
       derivedDB.loaded=true; derivedDB.loading=false; render();
     })
     .catch(function(){ derivedDB.loading=false; });
@@ -850,13 +861,13 @@ function ensureDerived(){
 function realCardBrowser(){
   var b=state.browser;
   if(b.hidden){
-    return '<button class="btn blue block" onclick="state.browser.hidden=false;render();">显示真实卡牌库</button>';
+    return '<button class="btn blue block" onclick="state.browser.hidden=false;render();">显示卡牌库</button>';
   }
   if(!cardDB.loaded){
-    return '<div class="panel"><div class="panel-title"><span class="dot" style="background:var(--blue)"></span>真实卡牌库</div>'+
+    return '<div class="panel"><div class="panel-title"><span class="dot" style="background:var(--blue)"></span>卡牌库</div>'+
       '<div style="font-size:11px;color:var(--muted);">未连接。前往「设置」→「连接卡牌数据」，加载官方 HearthstoneJSON 全量卡牌（8000+ 张），即可浏览真实卡牌与解析套牌代码。</div></div>';
   }
-  var h='<div class="panel"><div class="panel-title"><span class="dot" style="background:var(--blue)"></span>真实卡牌库';
+  var h='<div class="panel"><div class="panel-title"><span class="dot" style="background:var(--blue)"></span>卡牌库';
   h+='<button class="btn gray" style="margin-left:auto;padding:4px 9px;font-size:10px;" onclick="state.browser.hidden=true;render();">隐藏</button>';
   h+='<span style="font-size:10px;color:var(--muted);">'+cardDB.list.length+' 张</span></div>';
   h+='<div class="seg" style="margin-bottom:8px;">';
@@ -1328,14 +1339,14 @@ document.getElementById('modalMask').addEventListener('click',function(e){
   if(e.target===this)closeModal();
 });
 function closeModal(){ document.getElementById('modalMask').classList.remove('show'); }
-/* 截图点击放大 */
+/* 截图点击放大：独立全屏灯箱，铺满浏览器视口，不被 UI/弹层约束 */
 function openImage(url){
-  var m=document.getElementById('modalMask'), s=document.getElementById('sheet');
-  s.innerHTML='<div style="display:flex;align-items:center;justify-content:center;min-height:55vh;">'+
-    '<img src="'+url+'" style="max-width:100%;max-height:80vh;border-radius:12px;display:block;cursor:zoom-out;" onclick="closeModal();">'+
-    '</div><div style="text-align:center;font-size:11px;color:var(--muted);margin-top:6px;">点击图片或下方关闭</div>'+
-    '<button class="btn gray block" onclick="closeModal()">关闭</button>';
-  m.classList.add('show');
+  var lb=document.createElement('div');
+  lb.style.cssText='position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.94);display:flex;align-items:center;justify-content:center;';
+  lb.innerHTML='<img src="'+url+'" style="max-width:100vw;max-height:100vh;width:auto;height:auto;object-fit:contain;display:block;" onclick="event.stopPropagation();">'+
+    '<div style="position:fixed;bottom:18px;left:0;right:0;text-align:center;font-size:12px;color:rgba(255,255,255,.7);">点击任意处关闭</div>';
+  lb.onclick=function(){ if(lb.parentNode) lb.parentNode.removeChild(lb); };
+  document.body.appendChild(lb);
 }
 
 /* 快捷指令联动：同步游戏开始（iOS 无法读炉石游戏数据，改为信号桥接） */
