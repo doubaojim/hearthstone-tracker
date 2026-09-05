@@ -1269,6 +1269,39 @@ function bgSettle(res){
 /* ============================================================
    设置（含战绩统计 / 卡牌数据 / 安装说明）
    ============================================================ */
+/* OCR 识别引擎：预下载中文模型，避免酒馆截图识别时等待 */
+var ocrLoading=false;
+function getOCRStatus(){
+  if(ocrLoading) return 'loading';
+  try{ return localStorage.getItem('hs_ocr_ready')==='1' ? 'ready' : 'idle'; }catch(e){ return 'idle'; }
+}
+function preloadOCR(){
+  if(ocrLoading) return;
+  ocrLoading=true; render();
+  var done=function(){
+    ocrLoading=false;
+    try{ localStorage.setItem('hs_ocr_ready','1'); }catch(e){}
+    render(); toast('OCR 中文模型已预下载完成');
+  };
+  var fail=function(msg){
+    ocrLoading=false; render();
+    toast('OCR 模型下载失败：'+(msg||'请检查网络后重试'));
+  };
+  function startWorker(){
+    try{
+      Tesseract.createWorker('chi_sim').then(function(worker){
+        worker.terminate(); done();
+      }).catch(function(e){ fail(e&&e.message?e.message:'模型加载失败'); });
+    }catch(e){ fail(e.message); }
+  }
+  if(!window.Tesseract){
+    var sc=document.createElement('script');
+    sc.src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+    sc.onload=function(){ startWorker(); };
+    sc.onerror=function(){ fail('引擎脚本加载失败'); };
+    document.head.appendChild(sc);
+  } else { startWorker(); }
+}
 function settingsView(){
   var h='';
   var total = state.history.length;
@@ -1321,6 +1354,21 @@ function settingsView(){
     h += '<div style="font-size:11px;color:var(--muted);margin-bottom:8px;">连接官方 HearthstoneJSON 酒馆战棋数据库（与炉石盒子/HDT 同源），酒馆页将显示真实战棋随从（按酒馆等级）与英雄，每日自动更新。</div>';
     h += '<button class="btn blue block" onclick="connectBGDB()" id="bgConnectBtn">连接酒馆战棋数据</button>';
     h += '<div id="bgConnectStatus"></div>';
+  }
+  h += '</div>';
+
+  h += '<div class="panel"><div class="panel-title"><span class="dot" style="background:var(--orange)"></span>OCR 识别引擎</div>';
+  var ocrSt=getOCRStatus();
+  if(ocrSt==='ready'){
+    h += '<div class="kv"><span class="k">中文模型</span><span class="v" style="color:var(--green)">已预下载</span></div>';
+    h += '<div style="font-size:10px;color:var(--muted);margin-top:8px;">酒馆战棋快捷指令截图自动识别随从阵容时，直接使用本地缓存模型，无需等待下载。</div>';
+    h += '<button class="btn gray block" style="margin-top:10px;" onclick="preloadOCR()">重新下载 / 更新模型</button>';
+  } else if(ocrSt==='loading'){
+    h += '<div style="font-size:11px;color:var(--gold2);margin-bottom:8px;">正在下载中文 OCR 模型（约 10MB），请保持页面打开…</div>';
+    h += '<button class="btn gray block" disabled style="opacity:.6;cursor:not-allowed;">下载中…</button>';
+  } else {
+    h += '<div style="font-size:11px;color:var(--muted);margin-bottom:8px;">酒馆战棋快捷指令截图自动识别随从阵容时，需下载中文 OCR 模型（约 10MB，仅一次）。建议在此预下载，避免识别时等待。</div>';
+    h += '<button class="btn blue block" onclick="preloadOCR()">预下载中文 OCR 模型</button>';
   }
   h += '</div>';
 
