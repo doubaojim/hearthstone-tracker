@@ -1,5 +1,6 @@
 {
   "WFWorkflowClientVersion": "700",
+  "WFWorkflowName": "炉石记牌器-自动截图上传",
   "WFWorkflowImportQuestions": [],
   "WFWorkflowActions": [
     {

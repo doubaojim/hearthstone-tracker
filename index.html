@@ -1699,6 +1699,15 @@ function settingsView(){
   }
   h += '</div>';
 
+  h += '<div class="panel"><div class="panel-title"><span class="dot" style="background:var(--blue)"></span>iOS 快捷指令</div>';
+  h += '<div style="font-size:11px;color:var(--muted);margin-bottom:8px;line-height:1.5;">导入快捷指令后，可在炉石传说对局中一键截图并自动分享到本应用，自动 OCR 识别随从/英雄并添加到当前阵容。也可设为自动化（打开炉石时自动运行）。</div>';
+  h += '<div class="settle-row" style="margin-bottom:6px;">';
+  h += '<button class="btn blue" style="flex:1;" onclick="showShortcutGuide()">导入快捷指令</button>';
+  h += '<button class="btn gray" style="flex:1;" onclick="shareShortcut()">分享导入</button>';
+  h += '</div>';
+  h += '<div style="font-size:10px;color:var(--muted);margin-top:6px;line-height:1.5;">快捷指令功能：截图 → 系统分享 → 本应用自动接收 → 自动 OCR 识别 → 自动导入当前界面。需先将本站添加到主屏幕。</div>';
+  h += '</div>';
+
   h += '<div class="panel"><div class="panel-title"><span class="dot" style="background:var(--gold)"></span>安装到主屏幕</div>';
   h += '<div class="note">本应用已支持「添加到主屏幕」，安装后全屏启动、离线可用，体验接近原生 App：<br>1. 在 Safari 中打开本页；<br>2. 点底部「分享」按钮；<br>3. 选择「添加到主屏幕」；<br>4. 在主屏幕点击图标启动。</div>';
   h += '</div>';
@@ -2021,7 +2030,7 @@ function showOCRResultSheet(dataURL, text, matched){
   m.classList.add('show');
 }
 /* iOS 全自动快捷指令：内嵌 JSON，用 data URI 强制下载（不依赖服务器 Content-Type） */
-var SHORTCUT_JSON = JSON.stringify({"WFWorkflowClientVersion":"700","WFWorkflowImportQuestions":[],"WFWorkflowActions":[{"WFWorkflowActionIdentifier":"is.workflow.actions.takescreenshot","WFWorkflowActionParameters":{}},{"WFWorkflowActionIdentifier":"is.workflow.actions.share","WFWorkflowActionParameters":{}}]});
+var SHORTCUT_JSON = JSON.stringify({"WFWorkflowClientVersion":"700","WFWorkflowName":"炉石记牌器-自动截图上传","WFWorkflowImportQuestions":[],"WFWorkflowActions":[{"WFWorkflowActionIdentifier":"is.workflow.actions.takescreenshot","WFWorkflowActionParameters":{}},{"WFWorkflowActionIdentifier":"is.workflow.actions.share","WFWorkflowActionParameters":{}}]});
 function downloadShortcut(){
   var blob=new Blob([SHORTCUT_JSON],{type:'application/octet-stream'});
   var url=URL.createObjectURL(blob);
