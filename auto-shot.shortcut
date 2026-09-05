@@ -1,10 +1,6 @@
 {
   "WFWorkflowClientVersion": "700",
-  "WFWorkflowName": "炉石记牌器-自动截图上传",
   "WFWorkflowImportQuestions": [],
-  "WFWorkflowInputContentItemClasses": [
-    "WFAppStoreAppContentItem"
-  ],
   "WFWorkflowActions": [
     {
       "WFWorkflowActionIdentifier": "is.workflow.actions.takescreenshot",

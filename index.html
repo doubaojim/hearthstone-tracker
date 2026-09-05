@@ -1616,10 +1616,11 @@ function showShortcutGuide(){
   var sc=base+'auto-shot.shortcut';
   s.innerHTML='<div style="font-size:14px;font-weight:600;margin-bottom:8px;">iOS 全自动快捷指令</div>'+
     '<div style="font-size:11px;color:var(--muted);margin-bottom:10px;line-height:1.5;">一键导入后，可设为「打开炉石传说时自动运行」，自动截图并分享到本应用分析随从阵容。</div>'+
-    '<div class="settle-row" style="margin-bottom:10px;">'+
+    '<div class="settle-row" style="margin-bottom:6px;">'+
       '<button class="btn blue" style="flex:1;" onclick="window.location.href=\'shortcuts://import-shortcut?url='+encodeURIComponent(sc)+'\'">一键导入</button>'+
       '<button class="btn gray" style="flex:1;" onclick="window.open(\''+sc+'\')">下载文件</button>'+
     '</div>'+
+    '<div style="font-size:10px;color:var(--muted);margin-bottom:10px;line-height:1.5;">若一键导入提示 URL 无效，请点「下载文件」，然后在 iOS「文件」App 中找到 auto-shot.shortcut 并点击，即可自动导入快捷指令。</div>'+
     '<div style="font-size:11px;line-height:1.7;color:var(--text);">'+
       '<b style="color:var(--gold2);">使用步骤：</b><br>'+
       '1. 点「一键导入」，在快捷指令 App 确认添加；<br>'+
