@@ -305,7 +305,7 @@ var state = {
   bg:{ hero:null, tier:1, turn:1, hp:40, gold:3, refreshes:0, tavern:[], owned:[], tribes:{}, opponents:[], oppIdx:0, boardShot:null, minSearch:'' },
   history:[],
   imported:0,
-  browser:{ cls:'ALL', cost:'', q:'', limit:12, coll:'collect', hidden:false },
+  browser:{ cls:'ALL', cost:'', q:'', limit:12, coll:'collect', set:'ALL', hidden:false },
   bgBrowser:{ q:'', limit:18 },
   decks:[],
   currentDeckId:null,
@@ -340,6 +340,21 @@ var DAY=86400000;
 var cardDB = { loaded:false, list:[], byDbf:{}, byName:{}, lastUpdated:null };
 var clsMap={MAGE:'法师',HUNTER:'猎人',PRIEST:'牧师',WARLOCK:'术士',ROGUE:'潜行者',DRUID:'德鲁伊',
   SHAMAN:'萨满祭司',WARRIOR:'战士',PALADIN:'圣骑士',DEMONHUNTER:'恶魔猎手',DEATHKNIGHT:'死亡骑士',NEUTRAL:'中立'};
+var SET_NAMES={
+  'CORE':'核心','VANILLA':'经典','EXPERT1':'经典','LEGACY':'经典','CORE_HIDDEN':'核心(隐藏)',
+  'THE_BARRENS':'贫瘠之地','THE_SUNKEN_CITY':'沉没之城','ALTERAC_VALLEY':'奥特兰克的决裂',
+  'STORMWIND':'暴风城下的集结','DARKMOON_FAIRE':'暗月马戏团','LOOTAPALOOZA':'狗头人与地下世界',
+  'GILNEAS':'女巫森林','TITANS':'泰坦诸神','BOOMSDAY':'砰砰计划','BLACK_TEMPLE':'外域的灰烬',
+  'SCHOLOMANCE':'通灵学园','RETURN_OF_THE_LICH_KING':'巫妖王的进军','REVENDRETH':'纳斯利亚堡的悬案',
+  'ISLAND_VACATION':'荒芜之地','THE_LOST_CITY':'探寻沉没之城','WHIZBANGS_WORKSHOP':'威兹班的工坊',
+  'EMERALD_DREAM':'翡翠梦境','SPACE':'深空之旅','TIME_TRAVEL':'时光之穴','WILD_WEST':'决战荒芜之地',
+  'BATTLE_OF_THE_BANDS':'传奇音乐节','CATACLYSM':'大灾变','ICECROWN':'冰封王座的骑士',
+  'YEAR_OF_THE_DRAGON':'巨龙年','LOE':'探险者协会','DRAGONS':'巨龙降临','DALARAN':'达拉然大劫案',
+  'ULDUM':'奥丹姆奇兵','SAVIORS_OF_ULDUM':'奥丹姆奇兵','TROLL':'乱斗','TB':'乱斗',
+  'LETTUCE':'佣兵战纪','BATTLEGROUNDS':'酒馆战棋','HERO_SKINS':'英雄皮肤','CREDITS':'制作人员'
+};
+function setName(id){ return SET_NAMES[id]||id||'未知'; }
+function stripHTML(s){ return String(s||'').replace(/<[^>]+>/g,'').replace(/\s+/g,' ').trim(); }
 function applyCardDB(list){
   cardDB.list=list; cardDB.byDbf={}; cardDB.byName={};
   list.forEach(function(c){
@@ -803,9 +818,12 @@ function decksView(){
     h += '<div style="font-size:11px;color:var(--muted);">未选择卡组，暂无卡牌列表。</div>';
   }else{
     sorted.forEach(function(c){
+      var _cc = cardDB.loaded ? cardDB.byName[c.name] : null;
+      var _txt = (_cc && _cc.text) ? stripHTML(_cc.text) : '';
       h += '<div class="card-row">'+manaGem(c.cost)+
         '<div class="info"><div class="nm">'+esc(c.name)+'</div><div class="sub">'+(c.cost==null?'?':c.cost)+' 费</div></div>'+
         '<span class="pill">×'+(c.count||1)+'</span></div>';
+      if(_txt){ h += '<div style="font-size:10px;color:var(--muted);margin:-3px 0 9px 34px;line-height:1.5;white-space:normal;">'+esc(_txt)+'</div>'; }
     });
   }
   h += '</div>';
@@ -846,6 +864,16 @@ function realCardBrowser(){
     h+='<button class="'+(b.coll===p[1]?'on':'')+'" onclick="state.browser.coll=\''+p[1]+'\';if(\''+p[1]+'\'!==\'collect\')ensureDerived();render();">'+p[0]+'</button>';
   });
   h+='</div>';
+  /* 系列分组（层级高于职业） */
+  var setMap={};
+  cardDB.list.forEach(function(c){ if(c.set) setMap[c.set]=1; });
+  var setList=Object.keys(setMap).sort();
+  h+='<div class="h-scroll" style="margin-bottom:8px;padding-bottom:2px;">';
+  h+='<button class="tribe '+(b.set==='ALL'?'on':'')+'" onclick="state.browser.set=\'ALL\';state.browser.cls=\'ALL\';render();">全系列</button>';
+  setList.forEach(function(s){
+    h+='<button class="tribe '+(b.set===s?'on':'')+'" onclick="state.browser.set=\''+s+'\';state.browser.cls=\'ALL\';render();">'+esc(setName(s))+'</button>';
+  });
+  h+='</div>';
   h+='<input id="cardSearch" value="'+esc(b.q)+'" oninput="state.browser.q=this.value;renderCardList();" placeholder="搜索卡牌名称…" style="width:100%;background:#0F131A;color:var(--text);border:1px solid var(--line2);border-radius:10px;padding:9px 11px;font-size:12px;margin-bottom:8px;box-sizing:border-box;">';
   var clsKeys=['ALL','MAGE','HUNTER','PRIEST','WARLOCK','ROGUE','DRUID','SHAMAN','WARRIOR','PALADIN','DEMONHUNTER','DEATHKNIGHT','NEUTRAL'];
   h+='<div class="tribe-wrap" style="margin-bottom:8px;">';
@@ -865,6 +893,7 @@ function renderCardList(){
   else if(b.coll==='all'){ src=cardDB.list.concat(derivedDB.list); }
   else { src=cardDB.list; }
   var list=src.filter(function(c){
+    if(b.set!=='ALL' && c.set!==b.set) return false;
     if(b.cls!=='ALL' && c.cardClass!==b.cls) return false;
     if(q && !(c.name&&String(c.name).toLowerCase().indexOf(q)>-1)) return false;
     return true;
@@ -880,8 +909,9 @@ function renderCardList(){
   var h='';
   out.forEach(function(c){
     h+='<div class="card-row">'+manaGem(c.cost==null?'?':c.cost)+
-      '<div class="info"><div class="nm">'+esc(c.name)+'</div><div class="sub">'+(clsMap[c.cardClass]||c.cardClass||'')+(c.attack!=null?(' · '+c.attack+'/'+c.health):'')+'</div></div>'+
+      '<div class="info"><div class="nm">'+esc(c.name)+'</div><div class="sub">'+(clsMap[c.cardClass]||c.cardClass||'')+(c.attack!=null?(' · '+c.attack+'/'+c.health):'')+(c.set?(' · '+esc(setName(c.set))):'')+'</div></div>'+
       '<span class="pill gray">'+(c.cost==null?'?':c.cost)+'费</span></div>';
+    if(c.text){ h+='<div style="font-size:10px;color:var(--muted);margin:-3px 0 9px 34px;line-height:1.5;white-space:normal;">'+esc(stripHTML(c.text))+'</div>'; }
   });
   if(totalCount>lim){
     h+='<button class="btn blue block" style="margin-top:10px;" onclick="state.browser.limit=(state.browser.limit||12)+12;renderCardList();">加载更多卡牌（'+out.length+'/'+totalCount+'）</button>';
@@ -1016,11 +1046,11 @@ function battlegroundsView(){
   h += '</div>';
 
   h += '<div class="panel">';
-  h += '<div class="panel-title"><span class="dot" style="background:var(--green)"></span>我方棋盘';
+  h += '<div class="panel-title"><span class="dot" style="background:var(--green)"></span>我方阵容';
   h += '<span style="margin-left:auto;font-size:10px;color:var(--muted);">'+b.owned.length+' 个随从</span>';
   h += '</div>';
   if(b.boardShot){
-    h += '<img src="'+b.boardShot+'" style="width:100%;border-radius:10px;margin-bottom:6px;display:block;">';
+    h += '<img src="'+b.boardShot+'" onclick="openImage(this.src)" style="width:100%;border-radius:10px;margin-bottom:6px;display:block;cursor:zoom-in;">';
     h += '<button class="btn gray" style="width:100%;margin-bottom:8px;" onclick="delBgBoardShot()">删除棋盘截图</button>';
   }
   h += '<button class="btn gray block" onclick="bgImportBoard()">导入棋盘截图</button>';
@@ -1057,7 +1087,7 @@ function battlegroundsView(){
   h += '</div>';
 
   h += '<div class="panel">';
-  h += '<div class="panel-title"><span class="dot" style="background:var(--blue)"></span>对手阵容记录';
+  h += '<div class="panel-title"><span class="dot" style="background:var(--blue)"></span>对手阵容';
   h += '<span style="margin-left:auto;font-size:10px;color:var(--muted);">第 '+b.turn+' 回合 · 6 位</span></div>';
   while(b.opponents.length<6) b.opponents.push({name:'',tribes:[],shot:null,defeated:false,turn:0});
   h += '<div class="seg" style="margin-bottom:8px;flex-wrap:wrap;">';
@@ -1070,7 +1100,7 @@ function battlegroundsView(){
   var cur=b.opponents[b.oppIdx];
   h += '<div style="font-size:11px;color:var(--muted);margin-bottom:8px;">对手'+(b.oppIdx+1)+(cur.defeated?' · <span style="color:var(--red);">已落败</span>':'')+'</div>';
   if(cur.shot){
-    h += '<img src="'+cur.shot+'" style="width:100%;border-radius:10px;margin-bottom:6px;display:block;">';
+    h += '<img src="'+cur.shot+'" onclick="openImage(this.src)" style="width:100%;border-radius:10px;margin-bottom:6px;display:block;cursor:zoom-in;">';
     h += '<button class="btn gray" style="width:100%;margin-bottom:8px;" onclick="delBgOppShot()">删除截图</button>';
   }
   h += '<button class="btn gray block" onclick="bgImportOppShot()">导入对手截图</button>';
@@ -1298,6 +1328,15 @@ document.getElementById('modalMask').addEventListener('click',function(e){
   if(e.target===this)closeModal();
 });
 function closeModal(){ document.getElementById('modalMask').classList.remove('show'); }
+/* 截图点击放大 */
+function openImage(url){
+  var m=document.getElementById('modalMask'), s=document.getElementById('sheet');
+  s.innerHTML='<div style="display:flex;align-items:center;justify-content:center;min-height:55vh;">'+
+    '<img src="'+url+'" style="max-width:100%;max-height:80vh;border-radius:12px;display:block;cursor:zoom-out;" onclick="closeModal();">'+
+    '</div><div style="text-align:center;font-size:11px;color:var(--muted);margin-top:6px;">点击图片或下方关闭</div>'+
+    '<button class="btn gray block" onclick="closeModal()">关闭</button>';
+  m.classList.add('show');
+}
 
 /* 快捷指令联动：同步游戏开始（iOS 无法读炉石游戏数据，改为信号桥接） */
 /* ============================================================
