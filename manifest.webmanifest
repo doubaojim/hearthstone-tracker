@@ -1,0 +1,18 @@
+{
+  "name": "炉石记牌器",
+  "short_name": "炉石记牌器",
+  "description": "炉石传说记牌器：传统模式与酒馆战棋，真实卡牌数据每日自动更新，套牌代码与炉石盒子/HDT 互通",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#12161D",
+  "theme_color": "#12161D",
+  "icons": [
+    {
+      "src": "https://aka.doubaocdn.com/s/UOsmD99zFY",
+      "sizes": "1024x1024",
+      "type": "image/jpeg",
+      "purpose": "any"
+    }
+  ]
+}
