@@ -27,9 +27,9 @@
   .app{
     height:100%;display:flex;flex-direction:column;
     background:radial-gradient(120% 60% at 50% -10%, #1B2431 0%, var(--bg) 55%);
-    position:relative;overflow:hidden;
+    position:relative;overflow:visible;
   }
-  .app-scroll{flex:1;overflow-y:auto;overflow-x:hidden;padding:14px 14px 8px;}
+  .app-scroll{flex:1;overflow-y:auto;overflow-x:hidden;padding:14px 14px 76px;}
   .app-scroll::-webkit-scrollbar{width:0;}
 
   .app-header{
@@ -48,8 +48,9 @@
   .app-header .ver{font-size:10px;color:var(--muted);}
 
   .tabbar{
-    display:flex;border-top:1px solid var(--line);background:rgba(18,22,29,.94);
+    display:flex;border-top:1px solid var(--line);background:rgba(18,22,29,.97);
     backdrop-filter:blur(12px);padding-bottom:env(safe-area-inset-bottom);
+    position:sticky;bottom:0;z-index:30;flex-shrink:0;
   }
   .tabbar button{
     flex:1;background:none;border:none;color:var(--muted);padding:8px 0 7px;
