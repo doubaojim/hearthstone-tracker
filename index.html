@@ -176,7 +176,7 @@
   .hist-item .lb{color:var(--muted);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .hist-item .tm{color:var(--muted);font-size:10px;}
 
-  .modal-mask{position:absolute;inset:0;background:rgba(8,10,14,.7);display:none;align-items:flex-end;z-index:20;}
+  .modal-mask{position:fixed;inset:0;background:rgba(8,10,14,.7);display:none;align-items:flex-end;z-index:40;}
   .modal-mask.show{display:flex;}
   .sheet{width:100%;background:var(--panel);border-radius:20px 20px 0 0;padding:18px 16px calc(16px + env(safe-area-inset-bottom));}
   .sheet h4{font-size:15px;margin-bottom:10px;}
@@ -395,6 +395,7 @@ var DECK_URL='decks.json';
 var deckDB={loaded:false,decks:[],lastUpdated:null};
 var deckClsFilter='全部';
 var deckFmtFilter='全部'; /* 卡组库格式筛选：全部/传统(标准)/狂野 */
+var deckPage=1; /* 卡组库翻页（每页5套） */
 function applyDeckDB(data){
   deckDB.decks = Array.isArray(data.decks)?data.decks:[];
   deckDB.lastUpdated = data.updated || null;
@@ -747,12 +748,12 @@ function decksView(){
     var dkcls=['全部'].concat(['战士','萨满祭司','潜行者','圣骑士','猎人','德鲁伊','术士','法师','牧师','恶魔猎手','死亡骑士']);
     h += '<div class="tribe-wrap" style="margin-bottom:8px;">';
     dkcls.forEach(function(k){
-      h += '<button class="tribe '+(deckClsFilter===k?'on':'')+'" onclick="deckClsFilter=\''+k+'\';render();">'+esc(k)+'</button>';
+      h += '<button class="tribe '+(deckClsFilter===k?'on':'')+'" onclick="deckClsFilter=\''+k+'\';deckPage=1;render();">'+esc(k)+'</button>';
     });
     h += '</div>';
     h += '<div class="seg" style="margin-bottom:8px;">';
     [['全部','全部'],['传统','标准'],['狂野','狂野']].forEach(function(p){
-      h += '<button class="'+(deckFmtFilter===p[0]?'on':'')+'" onclick="deckFmtFilter=\''+p[0]+'\';render();">'+p[0]+'</button>';
+      h += '<button class="'+(deckFmtFilter===p[0]?'on':'')+'" onclick="deckFmtFilter=\''+p[0]+'\';deckPage=1;render();">'+p[0]+'</button>';
     });
     h += '</div>';
     var dlist=deckDB.decks.filter(function(d){
@@ -761,13 +762,23 @@ function decksView(){
       return okCls && okFmt;
     });
     if(dlist.length===0){ h += '<div style="font-size:11px;color:var(--muted);">无匹配卡组</div>'; }
-    dlist.forEach(function(d){
+    var per=5, deckTotalN=dlist.length, deckPages=Math.max(1,Math.ceil(deckTotalN/per));
+    if(deckPage>deckPages) deckPage=deckPages;
+    var dstart=(deckPage-1)*per, dend=Math.min(dstart+per,deckTotalN);
+    dlist.slice(dstart,dend).forEach(function(d){
       h += '<div class="card-row">';
       h += '<div style="width:26px;height:26px;flex:none;border-radius:8px;background:rgba(217,179,108,.15);display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--gold);font-weight:700;">'+esc(d.class.slice(0,2))+'</div>';
       h += '<div class="info"><div class="nm">'+esc(d.name)+'</div><div class="sub">'+esc(d.class)+' · '+esc(d.format)+' · 更新 '+esc(d.date||'')+'</div></div>';
       h += '<div class="micro"><button onclick="previewMetaDeck(\''+esc(d.name).replace(/'/g,"\\'")+'\',\''+d.code+'\',\''+d.class+'\',\''+d.format+'\')">查看</button><button onclick="loadMetaDeck(\''+esc(d.name).replace(/'/g,"\\'")+'\',\''+d.code+'\',\''+d.class+'\',\''+d.format+'\')">使用</button></div>';
       h += '</div>';
     });
+    if(deckPages>1){
+      h += '<div class="seg" style="margin-top:10px;margin-bottom:8px;">';
+      h += '<button '+(deckPage<=1?'disabled':'')+' onclick="if(deckPage>1)deckPage--;render();">上一页</button>';
+      h += '<button style="cursor:default;color:var(--text);">'+deckPage+' / '+deckPages+'</button>';
+      h += '<button '+(deckPage>=deckPages?'disabled':'')+' onclick="if(deckPage<deckPages)deckPage++;render();">下一页</button>';
+      h += '</div>';
+    }
     h += '<div style="font-size:10px;color:var(--muted);margin-top:8px;">来源：'+esc(deckDB.source||'公开源')+'。点「使用」即解码、收藏并载入对局。</div>';
   }
   h += '</div>';
