@@ -1,0 +1,14 @@
+{
+  "source": "公开卡组源（3DM/网易/旅法师营地等，2026-08~09）",
+  "note": "炉石盒子卡组库为私有无接口，本库采用同生态公开主流卡组；每日随网页端刷新",
+  "updated": "2026-09-05",
+  "decks": [
+    {"name":"海盗战","class":"战士","format":"标准","code":"AAECAYwWAq+gBKvgBw7j5gbohwfQsgfWsgeVwgebwgecwgel4Aem4Aen4Aeo4Aep4Afw4Af74AcAAA==","source":"3DM 36.4补丁","date":"2026-08-31"},
+    {"name":"龙战","class":"战士","format":"标准","code":"AAECAQcC69YHstgHDuPmBqr8Bqv8BveDB6WFB+iHB9KXB7etB+yyB4S9B7XAB5XCB5vCB5zCBwAA","source":"网易 黄金赛","date":"2026-07-15"},
+    {"name":"任务牧","class":"牧师","format":"标准","code":"AAECAa0GBoSfBMODB4WGB6iWB9XgB9zgBwyG/QbFlAfkngfSrwebvweyxQevyQeT3wew3wfW4AfZ4Af04AcAAA==","source":"3DM 36.4新职业","date":"2026-09-01"},
+    {"name":"标准控制牧","class":"牧师","format":"标准","code":"AAECAe2KBw6EnwTNngap9QaSgweolgeCmAf8qQeAqgeEqgesrQfksgeDvwevyQf04AcI8J8EoPsGw/8GhYYHna0HosQHssUHlvwHAAA=","source":"微博 36.4","date":"2026-09-05"},
+    {"name":"二费青玉贼","class":"潜行者","format":"标准","code":"AAECAaIHBpegBIaoB4eoB4ioB6HYB4jZBwz3nwTQngbZogb3gQfBlweaswf5wwfVxQfL1QeN2ge/9wfl9wcAAA==","source":"网易 36.2补丁","date":"2026-08-10"},
+    {"name":"德鲁伊(营地版)","class":"德鲁伊","format":"标准","code":"AAECAZICCqn1BqGBB5KDB6+HB6yIB4KYB+DAB+LAB+XEB6PaBwqunwSqrwesrwfosQe+sgfXwAeR2gfH5ge85wfK5wcAAA==","source":"旅法师营地 36.4.2","date":"2026-09-04"},
+    {"name":"Zee萨满","class":"萨满祭司","format":"标准","code":"AAECAaoICtCeBtOeBsODB/SqB9C/B4LUB5vUB9DbB4jdB9/lBwqe1ATt5gbXlwfgnQftrAePvgfJwAfJ2wfI5Qfm/QcAAA==","source":"esports.gg Brawliseum","date":"2026-08-14"}
+  ]
+}

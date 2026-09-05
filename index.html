@@ -299,25 +299,30 @@ var state = {
   tab:'constructed',
   matchActive:false,
   setup:{ myClass:'法师', oppClass:'法师' },
-  match:{ turn:1, mana:1, manaMax:1, myDeck:30, myHand:0, oppDeck:30, oppHand:0, myFatigue:0, oppFatigue:0, myPlayed:[], oppPlayed:[] },
+  match:{ turn:1, mana:1, manaMax:1, myDeck:30, myHand:0, oppDeck:30, oppHand:0, myFatigue:0, oppFatigue:0, myPlayed:[], oppPlayed:[], oppSeen:[] },
   trackers: cardPool.map(function(c){ return {name:c.name,cost:c.cost,tribe:c.tribe,total:c.total,deck:c.total,hand:0,played:0}; }),
   bg:{ hero:null, tier:1, turn:1, hp:40, gold:3, refreshes:0, tavern:[], owned:[], tribes:{} },
   history:[],
   imported:0,
-  browser:{ cls:'ALL', cost:'', q:'' }
+  browser:{ cls:'ALL', cost:'', q:'', limit:12 },
+  bgBrowser:{ q:'', limit:18 },
+  decks:[],
+  currentDeckId:null
 };
 
 /* ============================================================
    持久化
    ============================================================ */
 function save(){
-  try{ localStorage.setItem('hs_tracker', JSON.stringify({ history:state.history, setup:state.setup })); }catch(e){}
+  try{ localStorage.setItem('hs_tracker', JSON.stringify({ history:state.history, setup:state.setup, decks:state.decks, currentDeckId:state.currentDeckId })); }catch(e){}
 }
 function load(){
   try{
     var d = JSON.parse(localStorage.getItem('hs_tracker')||'{}');
     if(Array.isArray(d.history)) state.history = d.history;
     if(d.setup) state.setup = d.setup;
+    if(Array.isArray(d.decks)) state.decks = d.decks;
+    if(d.currentDeckId!=null) state.currentDeckId = d.currentDeckId;
   }catch(e){}
 }
 function record(mode, label, result, turns){
@@ -383,6 +388,65 @@ function connectCardDB(){
     render();
   });
 }
+/* 卡组库（公开主流卡组，每日更新；炉石盒子卡组库为私有无接口，故用同生态公开源） */
+var DECK_URL='decks.json';
+var deckDB={loaded:false,decks:[],lastUpdated:null};
+var deckClsFilter='全部';
+function applyDeckDB(data){
+  deckDB.decks = Array.isArray(data.decks)?data.decks:[];
+  deckDB.lastUpdated = data.updated || null;
+  deckDB.source = data.source || '公开源';
+  deckDB.loaded = true;
+}
+function fetchFreshDeckDB(){
+  return fetch(DECK_URL).then(function(r){ if(!r.ok) throw 0; return r.json(); })
+    .then(function(data){
+      applyDeckDB(data);
+      try{ localStorage.setItem('hs_decks_db', JSON.stringify({ts:Date.now(),data:data})); }catch(e){}
+      render(); return true;
+    })
+    .catch(function(){ return false; });
+}
+function loadDeckDB(){
+  if(deckDB.loaded) return Promise.resolve(true);
+  var cached=null;
+  try{ var c=localStorage.getItem('hs_decks_db'); if(c){ cached=JSON.parse(c); } }catch(e){}
+  if(cached && cached.data){
+    applyDeckDB(cached.data);
+    render();
+    if(Date.now()-(cached.ts||0) < DAY) return Promise.resolve(true);
+    fetchFreshDeckDB();
+    return Promise.resolve(true);
+  }
+  return fetchFreshDeckDB();
+}
+function connectDeckDB(){
+  var btn=document.getElementById('deckDBBtn');
+  var st=document.getElementById('deckDBStatus');
+  if(btn) btn.disabled=true;
+  if(st) st.innerHTML='<div style="font-size:11px;color:var(--muted);margin-top:8px;">正在加载卡组库…</div>';
+  loadDeckDB().then(function(ok){
+    if(st) st.innerHTML = ok
+      ? '<div style="font-size:11px;color:var(--green);margin-top:8px;">✓ 卡组库已加载（'+deckDB.decks.length+' 套）</div>'
+      : '<div style="font-size:11px;color:var(--red);margin-top:8px;">加载失败，请检查网络。</div>';
+    render();
+  });
+}
+/* 使用卡组库中的卡组：解码 → 收藏 → 载入对局 */
+function loadMetaDeck(name, code, cls, format){
+  if(!cardDB.loaded){ showToast('请先在「设置」连接卡牌数据'); return; }
+  var deck=decodeDeckstring(code);
+  if(!deck){ showToast('卡组代码解析失败'); return; }
+  var hero=cardDB.byDbf[deck.heroes[0]];
+  var cards=deck.cards.map(function(p){
+    var c=cardDB.byDbf[p[0]];
+    return {name:c?c.name:('未知#'+p[0]), cost:(c&&c.cost!=null)?c.cost:0, count:p[1]};
+  });
+  var cl = cls || (hero&&clsMap[hero.cardClass]?clsMap[hero.cardClass]:'中立');
+  saveDeckToCollection(name, cards, cl, format||(deck.format===2?'标准':'狂野'));
+  var id=state.decks[0]?state.decks[0].id:null;
+  if(id) useDeckById(id);
+}
 
 /* 套牌代码解码（炉石标准 v1 格式，与炉石盒子 / HDT 互通） */
 function readVarint(bytes,off){
@@ -443,8 +507,11 @@ function doImportDeckCode(){
       '<div class="info"><div class="nm">'+(c?esc(c.name):'未知(#'+cd[0]+')')+'</div><div class="sub">'+(c&&clsMap[c.cardClass]?clsMap[c.cardClass]:'')+'</div></div>'+
       '<span class="pill">×'+cd[1]+'</span></div>';
   });
-  h+='<button class="btn green block" style="margin-top:12px;" onclick="closeModal()">导入完成</button>';
+  h+='<div style="display:flex;gap:8px;margin-top:12px;">'+
+      '<button class="btn blue" style="flex:1;" onclick="saveParsedDeck(deckFromImport)">收藏此卡组</button>'+
+      '<button class="btn green" style="flex:1;" onclick="closeModal()">完成</button></div>';
   res.innerHTML=h;
+  window.deckFromImport=deck;
 }
 
 /* ============================================================
@@ -622,6 +689,53 @@ function decksView(){
       '<span class="curve-num">'+cst+'</span></div>';
   }
   var h='';
+  /* 我的卡组收藏 */
+  h += '<div class="panel"><div class="panel-title"><span class="dot" style="background:var(--green)"></span>我的卡组';
+  h += '<span style="margin-left:auto;font-size:10px;color:var(--muted);">'+state.decks.length+' 套</span></div>';
+  if(state.decks.length===0){
+    h += '<div style="font-size:11px;color:var(--muted);margin-bottom:8px;">还没有收藏卡组。从炉石盒子/HDT 复制套牌代码导入，即可收藏、显示并用于对局关联与对手开牌匹配。</div>';
+  }else{
+    state.decks.forEach(function(d){
+      var isCur = state.currentDeckId===d.id;
+      h += '<div class="deck-hero" style="margin-bottom:8px;">';
+      h += '<div class="ava" style="font-size:11px;font-weight:700;">'+esc((d.cls||'中').slice(0,2))+'</div>';
+      h += '<div style="flex:1;min-width:0;"><div style="font-size:14px;font-weight:700;">'+esc(d.name)+(isCur?' <span class="pill green">当前</span>':'')+'</div><div style="font-size:10px;color:var(--muted);margin-top:2px;">'+esc(d.cls)+' · '+esc(d.format)+' · '+deckTotal(d)+' 张</div></div>';
+      h += '<div class="micro"><button onclick="useDeckById(\''+d.id+'\')">使用</button><button onclick="deleteDeck(\''+d.id+'\')">删除</button></div>';
+      h += '</div>';
+    });
+  }
+  h += '<button class="btn blue block" style="margin-bottom:6px;" onclick="openImportSheet()">+ 导入卡组（盒子/HDT 套牌代码）</button>';
+  h += '<div style="font-size:10px;color:var(--muted);margin-bottom:14px;">导入的卡组保存在本机，卡牌数据每日自动更新；对局开始后可自动关联并用于对手开牌匹配。</div>';
+  h += '</div>';
+
+  /* 卡组库（公开主流卡组） */
+  h += '<div class="panel"><div class="panel-title"><span class="dot" style="background:var(--blue)"></span>卡组库';
+  h += '<span style="margin-left:auto;font-size:10px;color:var(--muted);">'+ (deckDB.loaded ? (deckDB.decks.length+' 套 · '+esc(deckDB.lastUpdated||'')) : '未连接') +'</span></div>';
+  if(!deckDB.loaded){
+    h += '<button class="btn blue block" onclick="connectDeckDB()" id="deckDBBtn">加载卡组库（公开主流卡组）</button>';
+    h += '<div id="deckDBStatus"></div>';
+    h += '<div style="font-size:10px;color:var(--muted);margin-top:8px;">数据源为公开主流卡组（炉石盒子卡组库为私有无接口，故采用同生态公开源），每日自动更新。</div>';
+  }else{
+    var dkcls=['全部'];
+    deckDB.decks.forEach(function(d){ if(dkcls.indexOf(d.class)<0) dkcls.push(d.class); });
+    h += '<div class="tribe-wrap" style="margin-bottom:8px;">';
+    dkcls.forEach(function(k){
+      h += '<button class="tribe '+(deckClsFilter===k?'on':'')+'" onclick="deckClsFilter=\''+k+'\';render();">'+esc(k)+'</button>';
+    });
+    h += '</div>';
+    var dlist=deckDB.decks.filter(function(d){ return deckClsFilter==='全部'||d.class===deckClsFilter; });
+    if(dlist.length===0){ h += '<div style="font-size:11px;color:var(--muted);">无匹配卡组</div>'; }
+    dlist.forEach(function(d){
+      h += '<div class="card-row">';
+      h += '<div style="width:26px;height:26px;flex:none;border-radius:8px;background:rgba(217,179,108,.15);display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--gold);font-weight:700;">'+esc(d.class.slice(0,2))+'</div>';
+      h += '<div class="info"><div class="nm">'+esc(d.name)+'</div><div class="sub">'+esc(d.class)+' · '+esc(d.format)+' · 更新 '+esc(d.date||'')+'</div></div>';
+      h += '<div class="micro"><button onclick="loadMetaDeck(\''+esc(d.name).replace(/'/g,"\\'")+'\',\''+d.code+'\',\''+d.class+'\',\''+d.format+'\')">使用</button></div>';
+      h += '</div>';
+    });
+    h += '<div style="font-size:10px;color:var(--muted);margin-top:8px;">来源：'+esc(deckDB.source||'公开源')+'。点「使用」即解码、收藏并载入对局。</div>';
+  }
+  h += '</div>';
+
   h += '<div class="deck-hero">';
   h += '<div class="ava"><svg viewBox="0 0 24 24" width="26" height="26" fill="none"><path d="M12 2 21 7v10l-9 5-9-5V7l9-5Z" stroke="currentColor" stroke-width="1.5"/><path d="M12 7l4.5 2.5v5L12 17l-4.5-2.5v-5L12 7Z" stroke="currentColor" stroke-width="1.2"/></svg></div>';
   h += '<div style="flex:1;min-width:0;"><div style="font-size:15px;font-weight:700;">奥秘法</div><div style="font-size:11px;color:var(--muted);margin-top:2px;">法师 · 标准 · '+total+' 张</div></div>';
@@ -677,7 +791,9 @@ function renderCardList(){
   list.forEach(function(c){
     if(c.name && !seen[c.name]){ seen[c.name]=1; out.push(c); }
   });
-  out=out.slice(0,40);
+  var lim=b.limit||12;
+  var totalCount=out.length;
+  out=out.slice(0,lim);
   if(out.length===0){ el.innerHTML='<div style="font-size:11px;color:var(--muted);">无匹配卡牌</div>'; return; }
   var h='';
   out.forEach(function(c){
@@ -685,6 +801,9 @@ function renderCardList(){
       '<div class="info"><div class="nm">'+esc(c.name)+'</div><div class="sub">'+(clsMap[c.cardClass]||c.cardClass||'')+(c.attack!=null?(' · '+c.attack+'/'+c.health):'')+'</div></div>'+
       '<span class="pill gray">'+(c.cost==null?'?':c.cost)+'费</span></div>';
   });
+  if(totalCount>lim){
+    h+='<button class="btn blue block" style="margin-top:10px;" onclick="state.browser.limit=(state.browser.limit||12)+12;renderCardList();">加载更多卡牌（'+out.length+'/'+totalCount+'）</button>';
+  }
   el.innerHTML=h;
 }
 
@@ -741,6 +860,25 @@ function findHero(name){
   for(var i=0;i<list.length;i++){ if(list[i].name===name) return list[i]; }
   return null;
 }
+function heroIsBase(hh){
+  if(!hh.id) return true;
+  return /^TB_BaconShop_HERO_\d+$/.test(hh.id);
+}
+function getFilteredHeroes(){
+  var list=getHeroes();
+  if(state.bg.heroBase){
+    var by={}, out=[];
+    list.forEach(function(hh){
+      var key=hh.hpId||hh.name;
+      if(!(key in by)){ by[key]=hh; out.push(hh); }
+      else if(heroIsBase(hh) && !heroIsBase(by[key])){ by[key]=hh; }
+    });
+    list=out;
+  }
+  var q=(state.bg.heroSearch||'').toLowerCase();
+  if(q) list=list.filter(function(hh){ return hh.name.toLowerCase().indexOf(q)>-1; });
+  return list;
+}
 
 /* ============================================================
    酒馆战棋
@@ -749,17 +887,26 @@ function battlegroundsView(){
   var b = state.bg;
   var h='';
   if(!b.hero){
+    var hlist=getFilteredHeroes();
+    var per=24, page=state.bg.heroPage||1;
+    var shown=hlist.slice(0,page*per);
     h += '<div class="panel-title"><span class="dot" style="background:var(--gold)"></span>选择英雄';
-    h += '<span style="margin-left:auto;font-size:10px;color:var(--muted);">'+(bgDB.loaded?('官方库 '+bgDB.heroes.length+' 个'):'演示列表')+'</span>';
+    h += '<span style="margin-left:auto;font-size:10px;color:var(--muted);">'+(bgDB.loaded?('官方库 '+hlist.length+' 个'):'演示')+'</span></div>';
+    h += '<input id="heroSearch" value="'+esc(state.bg.heroSearch)+'" oninput="state.bg.heroSearch=this.value;state.bg.heroPage=1;render();" placeholder="搜索英雄名…" style="width:100%;background:#0F131A;color:var(--text);border:1px solid var(--line2);border-radius:10px;padding:9px 11px;font-size:12px;margin-bottom:8px;box-sizing:border-box;">';
+    h += '<div style="display:flex;gap:8px;margin-bottom:10px;">';
+    h += '<button class="btn '+(state.bg.heroBase?'primary':'gray')+'" style="flex:1;padding:8px;" onclick="state.bg.heroBase=!state.bg.heroBase;state.bg.heroPage=1;render();">'+(state.bg.heroBase?'仅基础英雄':'全部英雄(含皮肤)')+'</button>';
     h += '</div>';
     h += '<div class="tavern-grid">';
-    getHeroes().forEach(function(hh){
+    shown.forEach(function(hh){
       h += '<div class="minion" onclick="pickHero(\''+esc(hh.name)+'\')">'+
         '<div class="art" style="display:flex;align-items:center;justify-content:center;"><svg width="26" height="26" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="9" r="4" stroke="var(--gold)" stroke-width="1.5"/><path d="M5 20c1.5-3 4-4.5 7-4.5s5.5 1.5 7 4.5" stroke="var(--gold)" stroke-width="1.5"/></svg></div>'+
         '<div class="nm2" style="min-height:auto;">'+esc(hh.name)+'</div>'+
-        '<div class="st">'+(hh.hp||30)+' 生命'+(hh.power?(' · '+esc(hh.power)):'')+'</div></div>';
+        '<div class="st">'+(hh.hp||30)+' 生命</div></div>';
     });
     h += '</div>';
+    if(hlist.length>shown.length){
+      h += '<button class="btn blue block" style="margin-top:10px;" onclick="state.bg.heroPage=(state.bg.heroPage||1)+1;render();">加载更多英雄（'+shown.length+' / '+hlist.length+'）</button>';
+    }
     return h;
   }
   h += '<div class="stat-row">';
@@ -1004,6 +1151,103 @@ function useDeck(){
   showToast('已载入卡组「奥秘法」并开始对局');
 }
 
+/* ============================================================
+   卡组收藏模块（我的卡组，本地保存）
+   ============================================================ */
+function deckTotal(d){ return (d.cards||[]).reduce(function(s,c){return s+(c.count||1);},0); }
+function saveDeckToCollection(name, cards, cls, format){
+  if(!cards || !cards.length){ showToast('卡组为空，无法保存'); return; }
+  var d={ id:'d'+Date.now(), name:name||'未命名卡组', cls:cls||'中立', format:format||'标准', cards:cards };
+  state.decks.unshift(d);
+  save(); render();
+  showToast('已收藏卡组「'+d.name+'」');
+}
+function deleteDeck(id){
+  state.decks = state.decks.filter(function(d){return d.id!==id;});
+  if(state.currentDeckId===id) state.currentDeckId=null;
+  save(); render();
+}
+function currentDeck(){
+  return state.decks.find(function(d){return d.id===state.currentDeckId;}) || null;
+}
+/* 选择卡组为当前，并载入对局追踪 */
+function useDeckById(id){
+  var d=state.decks.find(function(x){return x.id===id;});
+  if(!d) return;
+  state.currentDeckId=id;
+  cardPool = d.cards.map(function(c){ return {name:c.name,cost:c.cost,tribe:'',total:c.count||1}; });
+  startMatch();
+  state.tab='constructed';
+  save(); render();
+  showToast('已载入「'+d.name+'」开始对局');
+}
+/* 从已解析的套牌代码保存到收藏 */
+function saveParsedDeck(deck){
+  var hero=cardDB.byDbf[deck.heroes[0]];
+  var cls = hero&&clsMap[hero.cardClass]?clsMap[hero.cardClass]:'中立';
+  var cards=deck.cards.map(function(p){ var c=cardDB.byDbf[p[0]]; return {name:c?c.name:('未知#'+p[0]),cost:(c&&c.cost!=null)?c.cost:0,count:p[1]}; });
+  openDeckNameSheet(deck, cls);
+}
+function openDeckNameSheet(deck, cls){
+  var sheet=document.getElementById('sheet');
+  sheet.innerHTML='<h4>保存卡组到收藏</h4>'+
+    '<div style="font-size:11px;color:var(--muted);margin-bottom:8px;">为这个卡组起个名字（默认用英雄职业名）</div>'+
+    '<input id="deckNameInput" style="width:100%;background:#0F131A;color:var(--text);border:1px solid var(--line2);border-radius:10px;padding:10px;font-size:13px;" placeholder="卡组名称">'+
+    '<button class="btn primary block" style="margin-top:10px;" onclick="confirmSaveDeck()">保存到我的卡组</button>';
+  document.getElementById('modalMask').classList.add('show');
+  document.getElementById('deckNameInput').focus();
+  /* 暂存待保存卡组 */
+  window._pendingDeck=deck; window._pendingCls=cls;
+}
+function confirmSaveDeck(){
+  var deck=window._pendingDeck, cls=window._pendingCls||'中立';
+  var name=document.getElementById('deckNameInput').value.trim();
+  var cards=deck.cards.map(function(p){ var c=cardDB.byDbf[p[0]]; return {name:c?c.name:('未知#'+p[0]),cost:(c&&c.cost!=null)?c.cost:0,count:p[1]}; });
+  saveDeckToCollection(name, cards, cls, deck.format===2?'标准':'狂野');
+  closeModal();
+}
+/* ============================================================
+   对手开牌记录 + 卡组匹配
+   ============================================================ */
+function addOppCard(){
+  var sheet=document.getElementById('sheet');
+  sheet.innerHTML='<h4>记录对手开牌 / 打出的牌</h4>'+
+    '<div style="font-size:11px;color:var(--muted);margin-bottom:8px;">记录你看到的对手卡牌，记牌器会匹配到最可能对应的卡组。</div>'+
+    '<input id="oppCardInput" list="oppCardSuggest" style="width:100%;background:#0F131A;color:var(--text);border:1px solid var(--line2);border-radius:10px;padding:10px;font-size:13px;" placeholder="输入卡牌名称">'+
+    '<datalist id="oppCardSuggest"></datalist>'+
+    '<button class="btn blue block" style="margin-top:10px;" onclick="commitOppCard()">加入记录</button>'+
+    '<div id="oppMatchResult"></div>';
+  document.getElementById('modalMask').classList.add('show');
+  /* 填充建议 */
+  if(cardDB.loaded){
+    var dl=document.getElementById('oppCardSuggest'), opts='';
+    cardDB.list.forEach(function(c){ if(c.name) opts+='<option value="'+esc(c.name)+'">'; });
+    dl.innerHTML=opts;
+  }
+}
+function commitOppCard(){
+  var name=document.getElementById('oppCardInput').value.trim();
+  if(!name){ showToast('请输入卡牌名称'); return; }
+  addTo(state.match.oppSeen, name, -1);
+  save(); closeModal(); render();
+  showToast('已记录对手卡牌：'+name);
+}
+function matchDeckSuggestion(){
+  var seen=state.match.oppSeen||[];
+  if(seen.length===0) return '';
+  var best=[];
+  state.decks.forEach(function(d){
+    var shared=0, dmap={};
+    (d.cards||[]).forEach(function(c){ dmap[c.name]=(dmap[c.name]||0)+1; });
+    seen.forEach(function(s){ if(dmap[s.name]) shared+=Math.min(s.count||1,dmap[s.name]); });
+    best.push({d:d,shared:shared});
+  });
+  best.sort(function(a,b){return b.shared-a.shared;});
+  var top=best[0];
+  if(!top || top.shared===0) return '<div style="font-size:10px;color:var(--muted);margin-top:6px;">暂无匹配的收藏卡组</div>';
+  return '<div style="font-size:10px;color:var(--gold);margin-top:6px;">最匹配卡组：<b>'+esc(top.d.name)+'</b>（命中 '+top.shared+' 张）</div>';
+}
+
 var newMatchPrompted=false;
 function doStartNewMatch(from, isBG){
   if(isBG){
@@ -1069,6 +1313,7 @@ document.addEventListener('visibilitychange', function(){
 load();
 loadCardDB(); /* 启动时后台自动连接/更新传统卡牌数据 */
 loadBGDB();   /* 启动时后台自动连接/更新酒馆战棋数据 */
+loadDeckDB(); /* 启动时后台自动连接/更新卡组库 */
 signalFromURL(); /* 快捷指令带参打开时自动开始新对局（?hs=start） */
 render();
 
