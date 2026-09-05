@@ -866,15 +866,14 @@ function heroIsBase(hh){
 }
 function getFilteredHeroes(){
   var list=getHeroes();
-  if(state.bg.heroBase){
-    var by={}, out=[];
-    list.forEach(function(hh){
-      var key=hh.hpId||hh.name;
-      if(!(key in by)){ by[key]=hh; out.push(hh); }
-      else if(heroIsBase(hh) && !heroIsBase(by[key])){ by[key]=hh; }
-    });
-    list=out;
-  }
+  /* 仅基础英雄：按英雄技能(hpId)分组，每组取基础皮肤代表，去除所有皮肤 */
+  var by={}, out=[];
+  list.forEach(function(hh){
+    var key=hh.hpId||hh.name;
+    if(!(key in by)){ by[key]=hh; out.push(hh); }
+    else if(heroIsBase(hh) && !heroIsBase(by[key])){ by[key]=hh; }
+  });
+  list=out;
   var q=(state.bg.heroSearch||'').toLowerCase();
   if(q) list=list.filter(function(hh){ return hh.name.toLowerCase().indexOf(q)>-1; });
   return list;
@@ -891,15 +890,16 @@ function battlegroundsView(){
     var per=24, page=state.bg.heroPage||1;
     var shown=hlist.slice(0,page*per);
     h += '<div class="panel-title"><span class="dot" style="background:var(--gold)"></span>选择英雄';
-    h += '<span style="margin-left:auto;font-size:10px;color:var(--muted);">'+(bgDB.loaded?('官方库 '+hlist.length+' 个'):'演示')+'</span></div>';
+    h += '<span style="margin-left:auto;font-size:10px;color:var(--muted);">'+(bgDB.loaded?('基础英雄 '+hlist.length+' 个 · 初始皮肤'):'演示')+'</span></div>';
     h += '<input id="heroSearch" value="'+esc(state.bg.heroSearch)+'" oninput="state.bg.heroSearch=this.value;state.bg.heroPage=1;render();" placeholder="搜索英雄名…" style="width:100%;background:#0F131A;color:var(--text);border:1px solid var(--line2);border-radius:10px;padding:9px 11px;font-size:12px;margin-bottom:8px;box-sizing:border-box;">';
-    h += '<div style="display:flex;gap:8px;margin-bottom:10px;">';
-    h += '<button class="btn '+(state.bg.heroBase?'primary':'gray')+'" style="flex:1;padding:8px;" onclick="state.bg.heroBase=!state.bg.heroBase;state.bg.heroPage=1;render();">'+(state.bg.heroBase?'仅基础英雄':'全部英雄(含皮肤)')+'</button>';
-    h += '</div>';
+    h += '<div style="font-size:10px;color:var(--muted);margin-bottom:8px;">已去除皮肤，仅显示基础英雄初始皮肤</div>';
     h += '<div class="tavern-grid">';
     shown.forEach(function(hh){
+      var art = hh.id
+        ? '<img src="https://art.hearthstonejson.com/v1/256x/'+esc(hh.id)+'.webp" loading="lazy" onerror="this.style.display=\'none\'" style="width:100%;height:100%;object-fit:cover;border-radius:10px;">'
+        : '<svg width="26" height="26" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="9" r="4" stroke="var(--gold)" stroke-width="1.5"/><path d="M5 20c1.5-3 4-4.5 7-4.5s5.5 1.5 7 4.5" stroke="var(--gold)" stroke-width="1.5"/></svg>';
       h += '<div class="minion" onclick="pickHero(\''+esc(hh.name)+'\')">'+
-        '<div class="art" style="display:flex;align-items:center;justify-content:center;"><svg width="26" height="26" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="9" r="4" stroke="var(--gold)" stroke-width="1.5"/><path d="M5 20c1.5-3 4-4.5 7-4.5s5.5 1.5 7 4.5" stroke="var(--gold)" stroke-width="1.5"/></svg></div>'+
+        '<div class="art" style="display:flex;align-items:center;justify-content:center;overflow:hidden;">'+art+'</div>'+
         '<div class="nm2" style="min-height:auto;">'+esc(hh.name)+'</div>'+
         '<div class="st">'+(hh.hp||30)+' 生命</div></div>';
     });
