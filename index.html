@@ -747,30 +747,63 @@ function toggleImportHero(name){
 function runHeroOCR(){
   var b=state.bg;
   if(!b.importShot){ toast('请先导入截图'); return; }
-  if(!window.Tesseract){
-    toast('正在加载识别引擎…');
-    var sc=document.createElement('script');
-    sc.src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
-    sc.onload=function(){ doHeroOCR(b.importShot); };
-    sc.onerror=function(){ toast('识别引擎加载失败'); };
-    document.head.appendChild(sc);
-  } else { doHeroOCR(b.importShot); }
+  doHeroOCR(b.importShot);
 }
 function doHeroOCR(dataURL){
   toast('正在识别英雄名称（首次需下载中文模型）…');
-  Tesseract.recognize(dataURL,'chi_sim').then(function(res){
-    var text=(res&&res.data&&res.data.text)||'';
-    var matched=matchHeroesFromText(text);
-    state.bg.importHeroes=matched;
-    if(matched.length>0 && !state.bg.importMyHero){
-      state.bg.importMyHero=matched[0].name;
-      for(var i=1;i<matched.length && i<=6;i++){
-        if(state.bg.importOppHeroes.indexOf(matched[i].name)<0) state.bg.importOppHeroes.push(matched[i].name);
+  loadTesseract(function(){
+    Tesseract.recognize(dataURL,'chi_sim').then(function(res){
+      var text=(res&&res.data&&res.data.text)||'';
+      var matched=matchHeroesFromText(text);
+      state.bg.importHeroes=matched;
+      if(matched.length>0 && !state.bg.importMyHero){
+        state.bg.importMyHero=matched[0].name;
+        for(var i=1;i<matched.length && i<=6;i++){
+          if(state.bg.importOppHeroes.indexOf(matched[i].name)<0) state.bg.importOppHeroes.push(matched[i].name);
+        }
       }
-    }
-    save(); render();
-    toast('识别到 '+matched.length+' 个英雄');
-  }).catch(function(){ toast('识别失败，可手动选择英雄'); });
+      save(); render();
+      if(matched.length>0){
+        toast('识别到 '+matched.length+' 个英雄');
+      }else{
+        toast('未自动识别到英雄，可手动选择');
+        showManualHeroSelect(dataURL);
+      }
+    }).catch(function(e){
+      toast('识别失败：'+(e&&e.message?e.message:'可手动选择英雄'));
+      showManualHeroSelect(dataURL);
+    });
+  });
+}
+/* 识别失败后手动选择英雄弹层 */
+function showManualHeroSelect(dataURL){
+  var m=document.getElementById('modalMask'), s=document.getElementById('sheet');
+  s.innerHTML='<div style="font-size:14px;font-weight:600;margin-bottom:6px;">手动选择英雄</div>'+
+    '<img src="'+dataURL+'" onclick="openImage(this.src)" style="width:100%;border-radius:10px;margin-bottom:8px;max-height:24vh;object-fit:contain;background:#000;display:block;cursor:zoom-in;">'+
+    '<input id="manualHeroSearch" oninput="filterManualHeroes(this.value)" placeholder="搜索英雄名…" style="width:100%;background:#0F131A;color:var(--text);border:1px solid var(--line2);border-radius:10px;padding:9px 11px;font-size:12px;margin-bottom:8px;box-sizing:border-box;">'+
+    '<div id="manualHeroList" style="max-height:32vh;overflow-y:auto;"></div>'+
+    '<div style="font-size:10px;color:var(--muted);margin-top:8px;">点选英雄循环切换：未选 → 我方 → 对手 → 未选</div>'+
+    '<div class="settle-row" style="margin-top:10px;">'+
+      '<button class="btn gray" style="flex:1;" onclick="closeModal()">完成</button>'+
+    '</div>';
+  m.classList.add('show');
+  filterManualHeroes('');
+}
+function filterManualHeroes(q){
+  var list=document.getElementById('manualHeroList');
+  if(!list) return;
+  var pool=getHeroes();
+  var qq=String(q||'').trim();
+  var filtered=qq? pool.filter(function(h){return h.name&&h.name.indexOf(qq)>-1;}) : pool.slice(0,80);
+  var b=state.bg;
+  list.innerHTML=filtered.map(function(hx){
+    var isMy=b.importMyHero===hx.name;
+    var isOpp=b.importOppHeroes.indexOf(hx.name)>-1;
+    var tag=isMy?'<span class="pill green">我方</span>':(isOpp?'<span class="pill red">对手</span>':'<span class="pill gray">未选</span>');
+    return '<div onclick="toggleImportHero(\''+esc(hx.name).replace(/'/g,"\\'")+'\')" style="display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:8px;border:1px solid var(--line2);margin-bottom:4px;cursor:pointer;background:rgba(255,255,255,.02);">'+
+      '<div style="flex:1;min-width:0;font-size:12px;">'+esc(hx.name)+'</div>'+tag+
+    '</div>';
+  }).join('') || '<div style="font-size:11px;color:var(--muted);padding:10px;text-align:center;">无匹配英雄</div>';
 }
 function matchHeroesFromText(text){
   var pool=getHeroes();
@@ -778,10 +811,51 @@ function matchHeroesFromText(text){
   var matched=[];
   pool.forEach(function(h){
     if(!h||!h.name) return;
-    var nm=String(h.name).replace(/\s+/g,'');
-    if(nm.length>=2 && t.indexOf(nm)>-1) matched.push(h);
+    if(fuzzyMatchName(h.name, t)) matched.push(h);
   });
   return matched.slice(0,10);
+}
+/* 模糊匹配：OCR识别炉石艺术字体易错，支持完全匹配/首尾字匹配/编辑距离<=1 */
+function fuzzyMatchName(name, text){
+  var n=String(name).replace(/\s+/g,'');
+  var t=String(text).replace(/\s+/g,'');
+  if(n.length<2 || !t) return false;
+  if(t.indexOf(n)>-1) return true;
+  /* 首尾各2字同时出现 */
+  if(n.length>=4){
+    if(t.indexOf(n.substring(0,2))>-1 && t.indexOf(n.substring(n.length-2))>-1) return true;
+  }
+  /* 编辑距离<=1的子串匹配（短名称） */
+  if(n.length>=2 && n.length<=5){
+    for(var i=0;i<=Math.max(0,t.length-n.length);i++){
+      var sub=t.substring(i,i+n.length);
+      if(sub.length!==n.length) continue;
+      var dist=0;
+      for(var j=0;j<n.length;j++){ if(sub[j]!==n[j]){ dist++; if(dist>1) break; } }
+      if(dist<=1) return true;
+    }
+  }
+  return false;
+}
+/* 带备用CDN的Tesseract加载 */
+function loadTesseract(cb){
+  if(window.Tesseract){ cb(); return; }
+  var cdnList=[
+    'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js',
+    'https://unpkg.com/tesseract.js@5/dist/tesseract.min.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.0.4/tesseract.min.js'
+  ];
+  var idx=0;
+  function tryLoad(){
+    if(idx>=cdnList.length){ toast('识别引擎加载失败，请检查网络后重试'); return; }
+    var sc=document.createElement('script');
+    sc.src=cdnList[idx];
+    sc.onload=function(){ cb(); };
+    sc.onerror=function(){ idx++; tryLoad(); };
+    document.head.appendChild(sc);
+  }
+  toast('正在加载识别引擎…');
+  tryLoad();
 }
 function startBgMatch(){
   var b=state.bg;
@@ -1507,19 +1581,12 @@ function bgImportBoard(){ pickImage(function(d){ autoImportShot(d,'my'); }); }
 function bgImportOppShot(){ pickImage(function(d){ autoImportShot(d,'opp'); }); }
 /* 统一自动导入：快捷指令/手动导入均走此入口，直接导入当前界面并自动OCR识别 */
 function autoImportShot(dataURL, hint){
-  compressImage(dataURL,1280,0.72,function(d){
+  compressImage(dataURL,1600,0.85,function(d){
     var b=state.bg;
     /* 棋盘导入设置界面：保存截图并自动识别英雄 */
     if(state.setupPhase==='bg'){
       b.importShot=d; save(); render();
-      if(!window.Tesseract){
-        toast('正在加载识别引擎…');
-        var sc=document.createElement('script');
-        sc.src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
-        sc.onload=function(){ doHeroOCR(d); };
-        sc.onerror=function(){ toast('识别引擎加载失败，可手动点选英雄'); };
-        document.head.appendChild(sc);
-      } else { doHeroOCR(d); }
+      doHeroOCR(d);
       return;
     }
     /* 酒馆记牌界面：保存截图并自动识别随从 */
@@ -1532,14 +1599,7 @@ function autoImportShot(dataURL, hint){
         var cur=b.opponents[b.oppIdx]; cur.shot=d; cur.turn=b.turn;
       }
       save(); render();
-      if(!window.Tesseract){
-        toast('正在加载识别引擎…');
-        var sc2=document.createElement('script');
-        sc2.src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
-        sc2.onload=function(){ autoOCRMinions(d,side); };
-        sc2.onerror=function(){ toast('识别引擎加载失败，可手动点选随从'); };
-        document.head.appendChild(sc2);
-      } else { autoOCRMinions(d,side); }
+      autoOCRMinions(d,side);
       return;
     }
     toast('请先进入酒馆战棋记牌界面再导入截图');
@@ -1548,29 +1608,86 @@ function autoImportShot(dataURL, hint){
 /* OCR自动识别随从并添加到我方/对手阵容 */
 function autoOCRMinions(dataURL, side){
   toast('正在识别截图中的随从阵容…');
-  Tesseract.recognize(dataURL,'chi_sim').then(function(res){
-    var text=(res&&res.data&&res.data.text)||'';
-    var matched=matchMinionsFromText(text);
-    var b=state.bg;
-    if(side==='my'){
-      matched.forEach(function(mm){
-        b.owned.push({name:mm.name,cost:mm.cost,tribe:mm.tribe||'',tier:mm.tier||1,a:mm.a||1,h:mm.h||1,sold:false,tripled:false});
-        if(mm.tribe) b.tribes[mm.tribe]=true;
-      });
-    }else{
-      while(b.opponents.length<6) b.opponents.push({name:'',tribes:[],shot:null,defeated:false,turn:0,minions:[]});
-      var cur=b.opponents[b.oppIdx]; cur.minions=cur.minions||[];
-      matched.forEach(function(mm){
-        cur.minions.push({name:mm.name,cost:mm.cost,tribe:mm.tribe||'',tier:mm.tier||1,a:mm.a||1,h:mm.h||1});
-        if(mm.tribe && cur.tribes.indexOf(mm.tribe)<0) cur.tribes.push(mm.tribe);
-      });
-      /* 识别到英雄名时自动设为对手名称 */
-      var heroes=matchHeroesFromText(text);
-      if(heroes.length>0 && !cur.name) cur.name=heroes[0].name;
-    }
-    save(); render();
-    toast('识别到 '+matched.length+' 个随从，已自动添加到'+(side==='my'?'我方阵容':'对手阵容'));
-  }).catch(function(){ toast('识别失败，可手动点选随从'); });
+  loadTesseract(function(){
+    Tesseract.recognize(dataURL,'chi_sim').then(function(res){
+      var text=(res&&res.data&&res.data.text)||'';
+      var matched=matchMinionsFromText(text);
+      var b=state.bg;
+      if(side==='my'){
+        matched.forEach(function(mm){
+          b.owned.push({name:mm.name,cost:mm.cost,tribe:mm.tribe||'',tier:mm.tier||1,a:mm.a||1,h:mm.h||1,sold:false,tripled:false});
+          if(mm.tribe) b.tribes[mm.tribe]=true;
+        });
+      }else{
+        while(b.opponents.length<6) b.opponents.push({name:'',tribes:[],shot:null,defeated:false,turn:0,minions:[]});
+        var cur=b.opponents[b.oppIdx]; cur.minions=cur.minions||[];
+        matched.forEach(function(mm){
+          cur.minions.push({name:mm.name,cost:mm.cost,tribe:mm.tribe||'',tier:mm.tier||1,a:mm.a||1,h:mm.h||1});
+          if(mm.tribe && cur.tribes.indexOf(mm.tribe)<0) cur.tribes.push(mm.tribe);
+        });
+        var heroes=matchHeroesFromText(text);
+        if(heroes.length>0 && !cur.name) cur.name=heroes[0].name;
+      }
+      save(); render();
+      if(matched.length>0){
+        toast('识别到 '+matched.length+' 个随从，已自动添加到'+(side==='my'?'我方阵容':'对手阵容'));
+      }else{
+        toast('未自动识别到随从，可手动点选添加');
+        showManualMinionSelect(dataURL, side);
+      }
+    }).catch(function(e){
+      toast('识别失败：'+(e&&e.message?e.message:'可手动点选随从'));
+      showManualMinionSelect(dataURL, side);
+    });
+  });
+}
+/* 识别失败后手动选择随从弹层 */
+function showManualMinionSelect(dataURL, side){
+  var m=document.getElementById('modalMask'), s=document.getElementById('sheet');
+  var pool=(bgDB.loaded&&bgDB.minions.length)?bgDB.minions:bgPool;
+  s.innerHTML='<div style="font-size:14px;font-weight:600;margin-bottom:6px;">手动选择随从</div>'+
+    '<img src="'+dataURL+'" onclick="openImage(this.src)" style="width:100%;border-radius:10px;margin-bottom:8px;max-height:24vh;object-fit:contain;background:#000;display:block;cursor:zoom-in;">'+
+    '<input id="manualMinionSearch" oninput="filterManualMinions(this.value)" placeholder="搜索随从名…" style="width:100%;background:#0F131A;color:var(--text);border:1px solid var(--line2);border-radius:10px;padding:9px 11px;font-size:12px;margin-bottom:8px;box-sizing:border-box;">'+
+    '<div id="manualMinionList" style="max-height:32vh;overflow-y:auto;"></div>'+
+    '<div style="font-size:10px;color:var(--muted);margin-top:8px;">点选随从添加到'+(side==='my'?'我方阵容':'当前对手阵容')+'，可多次选择。</div>'+
+    '<div class="settle-row" style="margin-top:10px;">'+
+      '<button class="btn gray" style="flex:1;" onclick="closeModal()">完成</button>'+
+    '</div>';
+  m.classList.add('show');
+  window._manualMinionSide=side;
+  filterManualMinions('');
+}
+function filterManualMinions(q){
+  var list=document.getElementById('manualMinionList');
+  if(!list) return;
+  var pool=(bgDB.loaded&&bgDB.minions.length)?bgDB.minions:bgPool;
+  var qq=String(q||'').trim();
+  var filtered=qq? pool.filter(function(m){return m.name&&m.name.indexOf(qq)>-1;}) : pool.slice(0,60);
+  var side=window._manualMinionSide||'my';
+  list.innerHTML=filtered.map(function(mm){
+    return '<div onclick="addManualMinion(\''+esc(mm.name).replace(/'/g,"\\'")+'\')" style="display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:8px;border:1px solid var(--line2);margin-bottom:4px;cursor:pointer;background:rgba(255,255,255,.02);">'+
+      '<span class="mana" style="flex-shrink:0;">'+(mm.cost!=null?mm.cost:'?')+'</span>'+
+      '<div style="flex:1;min-width:0;"><div style="font-size:12px;">'+esc(mm.name)+'</div><div style="font-size:10px;color:var(--muted);">'+esc(mm.tribe||'无种族')+'</div></div>'+
+      '<span style="font-size:10px;color:var(--green);">+ 添加</span>'+
+    '</div>';
+  }).join('') || '<div style="font-size:11px;color:var(--muted);padding:10px;text-align:center;">无匹配随从</div>';
+}
+function addManualMinion(name){
+  var pool=(bgDB.loaded&&bgDB.minions.length)?bgDB.minions:bgPool;
+  var mm=pool.find(function(x){return x.name===name;});
+  if(!mm) return;
+  var b=state.bg, side=window._manualMinionSide||'my';
+  if(side==='my'){
+    b.owned.push({name:mm.name,cost:mm.cost,tribe:mm.tribe||'',tier:mm.tier||1,a:mm.a||1,h:mm.h||1,sold:false,tripled:false});
+    if(mm.tribe) b.tribes[mm.tribe]=true;
+  }else{
+    while(b.opponents.length<6) b.opponents.push({name:'',tribes:[],shot:null,defeated:false,turn:0,minions:[]});
+    var cur=b.opponents[b.oppIdx]; cur.minions=cur.minions||[];
+    cur.minions.push({name:mm.name,cost:mm.cost,tribe:mm.tribe||'',tier:mm.tier||1,a:mm.a||1,h:mm.h||1});
+    if(mm.tribe && cur.tribes.indexOf(mm.tribe)<0) cur.tribes.push(mm.tribe);
+  }
+  save(); render();
+  toast('已添加：'+name);
 }
 function addOwnedMinion(name){
   var b=state.bg;
@@ -1621,13 +1738,7 @@ function preloadOCR(){
       }).catch(function(e){ fail(e&&e.message?e.message:'模型加载失败'); });
     }catch(e){ fail(e.message); }
   }
-  if(!window.Tesseract){
-    var sc=document.createElement('script');
-    sc.src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
-    sc.onload=function(){ startWorker(); };
-    sc.onerror=function(){ fail('引擎脚本加载失败'); };
-    document.head.appendChild(sc);
-  } else { startWorker(); }
+  loadTesseract(startWorker);
 }
 function settingsView(){
   var h='';
@@ -1982,14 +2093,7 @@ function saveShotTo(side, useOCR){
 }
 function analyzeAndSaveShot(){
   if(!pendingShot) return;
-  if(!window.Tesseract){
-    toast('正在加载识别引擎…');
-    var sc=document.createElement('script');
-    sc.src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
-    sc.onload=function(){ runOCR(pendingShot); };
-    sc.onerror=function(){ toast('识别引擎加载失败'); };
-    document.head.appendChild(sc);
-  } else { runOCR(pendingShot); }
+  loadTesseract(function(){ runOCR(pendingShot); });
 }
 function runOCR(dataURL){
   toast('正在识别截图文字（首次需下载中文模型）…');
@@ -2006,8 +2110,7 @@ function matchMinionsFromText(text){
   var matched=[];
   pool.forEach(function(m){
     if(!m||!m.name) return;
-    var nm=String(m.name).replace(/\s+/g,'');
-    if(nm.length>=2 && t.indexOf(nm)>-1) matched.push(m);
+    if(fuzzyMatchName(m.name, t)) matched.push(m);
   });
   return matched.slice(0,14);
 }
