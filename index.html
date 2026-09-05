@@ -1662,10 +1662,11 @@ function render(){
   document.querySelectorAll('#tabbar button').forEach(function(b){
     b.classList.toggle('active', b.getAttribute('data-tab')===state.tab);
   });
-  /* 全屏对局记录界面：隐藏底部导航与顶部头部，左上角返回按钮替代 */
+  /* 全屏界面（设置阶段 + 记牌阶段）：隐藏底部导航与顶部头部，左上角返回按钮替代 */
   var tabbar=document.getElementById('tabbar');
   var header=document.querySelector('.app-header');
-  if(state.inMatch){
+  var hideChrome = state.inMatch || state.setupPhase;
+  if(hideChrome){
     if(tabbar) tabbar.style.display='none';
     if(header) header.style.display='none';
   } else {
