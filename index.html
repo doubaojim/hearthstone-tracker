@@ -299,6 +299,7 @@ var state = {
   matchActive:false,
   inMatch:false,
   matchMode:'standard',
+  setupPhase:null,
   setup:{ myClass:'法师', oppClass:'法师' },
   match:{ turn:1, mana:1, manaMax:1, myDeck:30, myHand:0, oppDeck:30, oppHand:0, myFatigue:0, oppFatigue:0, myGrave:0, oppGrave:0, myPlayed:[], oppPlayed:[], oppSeen:[] },
   trackers: cardPool.map(function(c){ return {name:c.name,cost:c.cost,tribe:c.tribe,total:c.total,deck:c.total,hand:0,played:0}; }),
@@ -577,19 +578,224 @@ function modeSelectView(){
 }
 function startMatchMode(mode){
   state.matchMode=mode;
+  state.tab='constructed';
   if(mode==='battlegrounds'){
-    state.inMatch=true; state.tab='constructed'; save(); render();
-    return;
+    state.setupPhase='bg'; state.inMatch=false; state.matchActive=false;
+    /* 重置酒馆数据以便新对局 */
+    state.bg.hero=null; state.bg.tavern=[]; state.bg.owned=[]; state.bg.tribes={};
+    state.bg.opponents=[]; state.bg.oppIdx=0; state.bg.boardShot=null; state.bg.minSearch='';
+    state.bg.turn=1; state.bg.gold=3; state.bg.tier=1; state.bg.hp=40;
+    state.bg.importShot=null; state.bg.importHeroes=[]; state.bg.importMyHero=''; state.bg.importOppHeroes=[];
+  }else{
+    state.setupPhase='constructed'; state.inMatch=false; state.matchActive=false;
   }
-  var m=state.match;
-  m.turn=1;m.mana=1;m.manaMax=1;m.myDeck=30;m.myHand=0;m.oppDeck=30;m.oppHand=0;
-  m.myFatigue=0;m.oppFatigue=0;m.myGrave=0;m.oppGrave=0;m.myPlayed=[];m.oppPlayed=[];m.oppSeen=[];
-  state.trackers=cardPool.map(function(c){return{name:c.name,cost:c.cost,tribe:c.tribe,total:c.total,deck:c.total,hand:0,played:0};});
-  state.matchActive=true; state.inMatch=true; state.tab='constructed';
-  newMatchPrompted=false; save(); render();
+  save(); render();
 }
 function exitMatch(){
-  state.inMatch=false; state.matchActive=false; state.tab='constructed'; save(); render();
+  state.inMatch=false; state.matchActive=false; state.setupPhase=null; state.tab='constructed'; save(); render();
+}
+
+/* ============================================================
+   传统/狂野对局设置：选择我的卡组 + 对手英雄
+   ============================================================ */
+function constructedSetupView(){
+  var modeLabel = state.matchMode==='wild'?'狂野模式':'传统模式';
+  var h='';
+  h += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">';
+  h += '<button onclick="exitMatch()" style="flex-shrink:0;padding:8px 12px;background:rgba(255,255,255,.06);border:1px solid var(--line2);border-radius:10px;color:var(--text);font-size:12px;cursor:pointer;display:flex;align-items:center;gap:4px;"><svg viewBox="0 0 24 24" fill="none" width="14" height="14"><path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>返回</button>';
+  h += '<div style="flex:1;font-size:14px;font-weight:600;">'+modeLabel+' · 对局设置</div>';
+  h += '</div>';
+
+  /* 我的卡组 */
+  h += '<div class="panel">';
+  h += '<div class="panel-title"><span class="dot" style="background:var(--green)"></span>我的卡组';
+  h += '<span style="margin-left:auto;font-size:10px;color:var(--muted);">'+state.decks.length+' 套</span></div>';
+  if(state.decks.length===0){
+    h += '<div style="font-size:11px;color:var(--muted);padding:8px 0;">尚未收藏卡组。可到「卡组」Tab 导入套牌代码或从卡组库收藏，也可直接开始使用默认牌池。</div>';
+  } else {
+    h += '<div class="h-scroll" style="gap:8px;">';
+    state.decks.forEach(function(d){
+      var isCur = state.currentDeckId===d.id;
+      h += '<div onclick="selectSetupDeck(\''+d.id+'\')" style="flex-shrink:0;width:140px;padding:10px;border-radius:10px;border:1px solid '+(isCur?'var(--gold)':'var(--line2)')+';background:'+(isCur?'rgba(217,179,108,.1)':'rgba(255,255,255,.02)')+';cursor:pointer;">';
+      h += '<div style="font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+esc(d.name)+(isCur?' ✓':'')+'</div>';
+      h += '<div style="font-size:10px;color:var(--muted);margin-top:3px;">'+esc(d.cls)+' · '+deckTotal(d)+'张</div>';
+      h += '</div>';
+    });
+    h += '</div>';
+    if(state.currentDeckId){
+      var cd=currentDeck();
+      if(cd) h += '<div style="font-size:10px;color:var(--green);margin-top:8px;">已选择：'+esc(cd.name)+'（'+deckTotal(cd)+'张）</div>';
+    }
+  }
+  h += '</div>';
+
+  /* 对手英雄 */
+  h += '<div class="panel">';
+  h += '<div class="panel-title"><span class="dot" style="background:var(--red)"></span>对手英雄</div>';
+  h += '<div class="tribe-wrap">';
+  classes.forEach(function(c){
+    h += '<button class="tribe '+(state.setup.oppClass===c?'on':'')+'" onclick="setClass(\'opp\',\''+c+'\')">'+c+'</button>';
+  });
+  h += '</div>';
+  h += '</div>';
+
+  h += '<button class="btn primary block" onclick="startConstructedMatch()">开始记牌</button>';
+  h += '<div style="font-size:10px;color:var(--muted);margin-top:10px;">选择我的卡组后，记牌器将按卡组卡牌追踪剩余/手牌/打出；对手英雄用于战绩统计。</div>';
+  return h;
+}
+function selectSetupDeck(id){ state.currentDeckId=id; save(); render(); }
+function startConstructedMatch(){
+  var cd=currentDeck();
+  if(cd && cd.cards && cd.cards.length){
+    cardPool = cd.cards.map(function(c){ return {name:c.name,cost:c.cost,tribe:'',total:c.count||1}; });
+    state.setup.myClass = cd.cls || state.setup.myClass;
+  }
+  var m=state.match;
+  m.turn=1;m.mana=1;m.manaMax=1;m.myDeck=deckTotal(cd)||30;m.myHand=0;m.oppDeck=30;m.oppHand=0;
+  m.myFatigue=0;m.oppFatigue=0;m.myGrave=0;m.oppGrave=0;m.myPlayed=[];m.oppPlayed=[];m.oppSeen=[];
+  state.trackers=cardPool.map(function(c){return{name:c.name,cost:c.cost,tribe:c.tribe,total:c.total,deck:c.total,hand:0,played:0};});
+  state.setupPhase=null; state.matchActive=true; state.inMatch=true; state.tab='constructed';
+  newMatchPrompted=false; save(); render();
+}
+
+/* ============================================================
+   酒馆战棋棋盘导入：截图识别我方/对方英雄
+   ============================================================ */
+function bgBoardImportView(){
+  var b=state.bg;
+  b.importHeroes=b.importHeroes||[];
+  b.importMyHero=b.importMyHero||'';
+  b.importOppHeroes=b.importOppHeroes||[];
+  var h='';
+  h += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">';
+  h += '<button onclick="exitMatch()" style="flex-shrink:0;padding:8px 12px;background:rgba(255,255,255,.06);border:1px solid var(--line2);border-radius:10px;color:var(--text);font-size:12px;cursor:pointer;display:flex;align-items:center;gap:4px;"><svg viewBox="0 0 24 24" fill="none" width="14" height="14"><path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>返回</button>';
+  h += '<div style="flex:1;font-size:14px;font-weight:600;">酒馆战棋 · 棋盘导入</div>';
+  h += '</div>';
+
+  /* 截图导入 */
+  h += '<div class="panel">';
+  h += '<div class="panel-title"><span class="dot" style="background:var(--blue)"></span>棋盘截图';
+  h += '<span style="margin-left:auto;font-size:10px;color:var(--muted);">导入后自动识别英雄</span></div>';
+  if(b.importShot){
+    h += '<img src="'+b.importShot+'" onclick="openImage(this.src)" style="width:100%;border-radius:10px;margin-bottom:8px;max-height:30vh;object-fit:contain;background:#000;display:block;cursor:zoom-in;">';
+    h += '<div style="display:flex;gap:8px;">';
+    h += '<button class="btn blue" style="flex:1;" onclick="runHeroOCR()">识别英雄</button>';
+    h += '<button class="btn gray" onclick="b.importShot=null;b.importHeroes=[];b.importMyHero=\'\';b.importOppHeroes=[];render()">重新导入</button>';
+    h += '</div>';
+  } else {
+    h += '<button class="btn blue block" onclick="pickImage(function(d){compressImage(d,1280,0.72,function(dd){state.bg.importShot=dd;save();render();});})">导入棋盘截图</button>';
+    h += '<div style="font-size:10px;color:var(--muted);margin-top:8px;">建议截取包含我方英雄头像和对手英雄的完整棋盘画面。iOS 快捷指令截图后「分享」到本应用也可自动上传。</div>';
+  }
+  h += '</div>';
+
+  /* 识别结果 */
+  if(b.importHeroes.length>0 || b.importMyHero || b.importOppHeroes.length>0){
+    h += '<div class="panel">';
+    h += '<div class="panel-title"><span class="dot" style="background:var(--gold)"></span>识别结果';
+    h += '<span style="margin-left:auto;font-size:10px;color:var(--muted);">点选设为我方/对手</span></div>';
+
+    /* 我方英雄 */
+    h += '<div style="font-size:11px;color:var(--muted);margin-bottom:6px;">我方英雄：'+(b.importMyHero?'<span style="color:var(--green);font-weight:600;">'+esc(b.importMyHero)+'</span>':'<span style="color:var(--muted);">未选择</span>')+'</div>';
+
+    /* 对手英雄 */
+    h += '<div style="font-size:11px;color:var(--muted);margin-bottom:6px;">对手英雄（'+b.importOppHeroes.length+'）：';
+    if(b.importOppHeroes.length>0){
+      b.importOppHeroes.forEach(function(nm,i){
+        h += '<span class="pill red" style="margin-right:4px;">'+esc(nm)+'</span>';
+      });
+    } else {
+      h += '<span style="color:var(--muted);">未选择</span>';
+    }
+    h += '</div>';
+
+    /* 英雄选择列表 */
+    if(b.importHeroes.length>0){
+      h += '<div style="font-size:10px;color:var(--muted);margin:8px 0 4px;">识别到的英雄（点选切换我方/对手）：</div>';
+      h += '<div style="max-height:24vh;overflow-y:auto;">';
+      b.importHeroes.forEach(function(hx){
+        var isMy = b.importMyHero===hx.name;
+        var isOpp = b.importOppHeroes.indexOf(hx.name)>-1;
+        var tag = isMy?'<span class="pill green">我方</span>':(isOpp?'<span class="pill red">对手</span>':'<span class="pill gray">未选</span>');
+        h += '<div onclick="toggleImportHero(\''+esc(hx.name).replace(/'/g,"\\'")+'\')" style="display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:8px;border:1px solid var(--line2);margin-bottom:5px;cursor:pointer;background:rgba(255,255,255,.02);">';
+        h += '<div style="flex:1;font-size:12px;">'+esc(hx.name)+'</div>'+tag;
+        h += '</div>';
+      });
+      h += '</div>';
+      h += '<div style="font-size:10px;color:var(--muted);margin-top:6px;">点击英雄循环切换：未选 → 我方 → 对手 → 未选</div>';
+    }
+    h += '</div>';
+  }
+
+  h += '<button class="btn primary block" onclick="startBgMatch()">进入记牌</button>';
+  h += '<div style="font-size:10px;color:var(--muted);margin-top:10px;">识别率有限，可手动点选修正；未识别英雄时可直接进入记牌，在酒馆界面手动选择。</div>';
+  return h;
+}
+function toggleImportHero(name){
+  var b=state.bg;
+  if(b.importMyHero===name){
+    b.importMyHero='';
+    if(b.importOppHeroes.indexOf(name)<0) b.importOppHeroes.push(name);
+  } else if(b.importOppHeroes.indexOf(name)>-1){
+    b.importOppHeroes=b.importOppHeroes.filter(function(x){return x!==name;});
+  } else {
+    if(!b.importMyHero) b.importMyHero=name;
+    else if(b.importOppHeroes.length<6) b.importOppHeroes.push(name);
+    else toast('最多记录6位对手');
+  }
+  save(); render();
+}
+function runHeroOCR(){
+  var b=state.bg;
+  if(!b.importShot){ toast('请先导入截图'); return; }
+  if(!window.Tesseract){
+    toast('正在加载识别引擎…');
+    var sc=document.createElement('script');
+    sc.src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+    sc.onload=function(){ doHeroOCR(b.importShot); };
+    sc.onerror=function(){ toast('识别引擎加载失败'); };
+    document.head.appendChild(sc);
+  } else { doHeroOCR(b.importShot); }
+}
+function doHeroOCR(dataURL){
+  toast('正在识别英雄名称（首次需下载中文模型）…');
+  Tesseract.recognize(dataURL,'chi_sim').then(function(res){
+    var text=(res&&res.data&&res.data.text)||'';
+    var matched=matchHeroesFromText(text);
+    state.bg.importHeroes=matched;
+    if(matched.length>0 && !state.bg.importMyHero){
+      state.bg.importMyHero=matched[0].name;
+      for(var i=1;i<matched.length && i<=6;i++){
+        if(state.bg.importOppHeroes.indexOf(matched[i].name)<0) state.bg.importOppHeroes.push(matched[i].name);
+      }
+    }
+    save(); render();
+    toast('识别到 '+matched.length+' 个英雄');
+  }).catch(function(){ toast('识别失败，可手动选择英雄'); });
+}
+function matchHeroesFromText(text){
+  var pool=getHeroes();
+  var t=String(text||'').replace(/\s+/g,'');
+  var matched=[];
+  pool.forEach(function(h){
+    if(!h||!h.name) return;
+    var nm=String(h.name).replace(/\s+/g,'');
+    if(nm.length>=2 && t.indexOf(nm)>-1) matched.push(h);
+  });
+  return matched.slice(0,10);
+}
+function startBgMatch(){
+  var b=state.bg;
+  if(b.importMyHero){
+    var hx=getHeroes().find(function(x){return x.name===b.importMyHero;});
+    b.hero=hx?hx:{name:b.importMyHero,hp:40,power:''};
+  }
+  while(b.opponents.length<6) b.opponents.push({name:'',tribes:[],shot:null,defeated:false,turn:0,minions:[]});
+  b.importOppHeroes.forEach(function(nm,i){
+    if(i<6) b.opponents[i].name=nm;
+  });
+  b.importShot=null; b.importHeroes=[]; b.importMyHero=''; b.importOppHeroes=[];
+  state.setupPhase=null; state.inMatch=true; state.matchMode='battlegrounds'; state.tab='constructed';
+  save(); render();
 }
 
 /* ============================================================
@@ -627,6 +833,8 @@ function startMatch(){
   state.matchActive=true; state.inMatch=true; newMatchPrompted=false; save(); render();
 }
 function constructedView(){
+  if(state.setupPhase==='constructed'){ return constructedSetupView(); }
+  if(state.setupPhase==='bg'){ return bgBoardImportView(); }
   if(state.inMatch && state.matchMode==='battlegrounds'){ return battlegroundsView(); }
   if(!state.matchActive){ return modeSelectView(); }
   var m = state.match;
@@ -1156,11 +1364,12 @@ function battlegroundsView(){
   for(var _oi=0;_oi<6;_oi++){
     var _oc=b.opponents[_oi];
     var _has=_oc.tribes.length>0||_oc.shot;
-    h += '<button class="'+(b.oppIdx===_oi?'on':'')+'" onclick="selBgOpp('+_oi+')">'+( _oi+1 )+(_has?'·':'')+(_oc.defeated?'败':'')+'</button>';
+    var _label=_oc.name?esc(_oc.name):('对手'+(_oi+1));
+    h += '<button class="'+(b.oppIdx===_oi?'on':'')+'" onclick="selBgOpp('+_oi+')" style="padding:6px 10px;font-size:11px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+_label+(_oc.defeated?' 败':'')+'</button>';
   }
   h += '</div>';
   var cur=b.opponents[b.oppIdx];
-  h += '<div style="font-size:11px;color:var(--muted);margin-bottom:8px;">对手'+(b.oppIdx+1)+(cur.defeated?' · <span style="color:var(--red);">已落败</span>':'')+'</div>';
+  h += '<div style="font-size:11px;color:var(--muted);margin-bottom:8px;">'+(cur.name?esc(cur.name):'对手'+(b.oppIdx+1))+(cur.defeated?' · <span style="color:var(--red);">已落败</span>':'')+'</div>';
   if(cur.shot){
     h += '<img src="'+cur.shot+'" onclick="openImage(this.src)" style="width:100%;border-radius:10px;margin-bottom:6px;display:block;cursor:zoom-in;">';
     h += '<button class="btn gray" style="width:100%;margin-bottom:8px;" onclick="delBgOppShot()">删除截图</button>';
