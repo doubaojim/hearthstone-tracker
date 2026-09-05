@@ -2054,9 +2054,18 @@ function shareShortcut(){
 function showShortcutGuide(){
   var m=document.getElementById('modalMask'), s=document.getElementById('sheet');
   var base='https://doubaojim.github.io/hearthstone-tracker/';
-  var sc=base+'auto-shot.shortcut';
-  s.innerHTML='<div style="font-size:14px;font-weight:600;margin-bottom:8px;">iOS 全自动快捷指令</div>'+
-    '<div style="font-size:11px;color:var(--muted);margin-bottom:10px;line-height:1.5;">导入后可设为「打开炉石传说时自动运行」，自动截图并分享到本应用分析随从阵容。</div>'+
+  s.innerHTML='<div style="font-size:14px;font-weight:600;margin-bottom:8px;">iOS 快捷指令 · 自动截图上传</div>'+
+    '<div style="background:rgba(88,166,255,.08);border:1px solid rgba(88,166,255,.3);border-radius:10px;padding:10px;margin-bottom:10px;">'+
+      '<div style="font-size:11px;font-weight:600;color:var(--blue);margin-bottom:6px;">自动化流程</div>'+
+      '<div style="font-size:11px;color:var(--text);line-height:1.8;">'+
+        '① 运行快捷指令 → <b>自动截图</b><br>'+
+        '② 弹出系统分享面板 → 选「炉石记牌器」<br>'+
+        '③ 本应用<b>自动接收截图</b><br>'+
+        '④ <b>自动 OCR 识别</b>随从/英雄<br>'+
+        '⑤ <b>自动导入</b>当前界面（我方/对手阵容）'+
+      '</div>'+
+    '</div>'+
+    '<div style="font-size:11px;color:var(--muted);margin-bottom:8px;line-height:1.5;">导入后可设为「打开炉石传说时自动运行」，对局中一键截图自动上传识别。</div>'+
     '<div class="settle-row" style="margin-bottom:6px;">'+
       '<button class="btn blue" style="flex:1;" onclick="shareShortcut()">通过分享导入（推荐）</button>'+
       '<button class="btn gray" style="flex:1;" onclick="downloadShortcut()">下载文件</button>'+
@@ -2065,15 +2074,14 @@ function showShortcutGuide(){
     '<div style="font-size:11px;line-height:1.7;color:var(--text);">'+
       '<b style="color:var(--gold2);">使用步骤：</b><br>'+
       '1. 点「通过分享导入」→ 在分享面板选「快捷指令」→ 确认添加；<br>'+
-      '2. 打开「快捷指令」→「自动化」→「创建个人自动化」；<br>'+
-      '3. 触发选「App」→ 选「炉石传说」→ 勾选「打开」；<br>'+
-      '4. 添加动作「运行快捷指令」→ 选「炉石记牌器-自动截图上传」；<br>'+
-      '5. 关闭「运行前询问」，点完成。此后打开炉石即自动截图上传。'+
+      '2. 打开「快捷指令」App → 找到「炉石记牌器-自动截图上传」；<br>'+
+      '3. （可选）设为自动化：「自动化」→「创建个人自动化」→「App」→ 选「炉石传说」→ 勾选「打开」→ 添加动作「运行快捷指令」→ 选本快捷指令 → 关闭「运行前询问」；<br>'+
+      '4. 对局中运行快捷指令 → 截图后在分享面板选「炉石记牌器」（需先将本站添加到主屏幕）；<br>'+
+      '5. 自动识别随从/英雄并导入当前界面。'+
     '</div>'+
     '<div style="font-size:10px;color:var(--muted);margin-top:10px;line-height:1.6;">'+
       '<b>备选（下载文件）：</b>iOS 15+ 不支持从「文件」App 直接打开未签名快捷指令。下载后请通过 <b>AirDrop</b> 从另一台 Apple 设备发送到本机，收到后会自动导入；或在 Mac 上用「快捷指令」App 打开后通过 iCloud 同步。<br>'+
-      '注：快捷指令内的分享动作会弹出系统分享面板，首次需在面板选「炉石记牌器」（需先将本站添加到主屏幕）。<br>'+
-      '<b>进阶完全无弹窗版：</b>在快捷指令中把「分享」替换为「获取 URL 内容」→ Method POST → Request Body 选 File → 文件选「截图」→ URL 填 <span style="color:var(--gold2);">'+base+'?share=1</span> ，再添加「打开 URL」→ <span style="color:var(--gold2);">'+base+'?shared=1</span> 。'+
+      '<b>注意：</b>快捷指令内的分享动作会弹出系统分享面板，首次需在面板选「炉石记牌器」（需先将本站添加到主屏幕，PWA 才会出现在分享面板中）。'+
     '</div>'+
     '<button class="btn gray block" style="margin-top:10px;" onclick="closeModal()">关闭</button>';
   m.classList.add('show');
