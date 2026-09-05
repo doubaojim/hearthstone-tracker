@@ -178,7 +178,7 @@
 
   .modal-mask{position:fixed;inset:0;background:rgba(8,10,14,.7);display:none;align-items:flex-end;z-index:40;}
   .modal-mask.show{display:flex;}
-  .sheet{width:100%;background:var(--panel);border-radius:20px 20px 0 0;padding:18px 16px calc(16px + env(safe-area-inset-bottom));}
+  .sheet{width:100%;background:var(--panel);border-radius:20px 20px 0 0;padding:18px 16px calc(20px + env(safe-area-inset-bottom));margin-bottom:12px;max-height:86vh;overflow-y:auto;}
   .sheet h4{font-size:15px;margin-bottom:10px;}
   .sheet .row{display:flex;justify-content:space-between;font-size:13px;padding:8px 0;border-bottom:1px solid var(--line);}
   .sheet .row:last-child{border-bottom:none;}
@@ -302,7 +302,7 @@ var state = {
   setup:{ myClass:'法师', oppClass:'法师' },
   match:{ turn:1, mana:1, manaMax:1, myDeck:30, myHand:0, oppDeck:30, oppHand:0, myFatigue:0, oppFatigue:0, myGrave:0, oppGrave:0, myPlayed:[], oppPlayed:[], oppSeen:[] },
   trackers: cardPool.map(function(c){ return {name:c.name,cost:c.cost,tribe:c.tribe,total:c.total,deck:c.total,hand:0,played:0}; }),
-  bg:{ hero:null, tier:1, turn:1, hp:40, gold:3, refreshes:0, tavern:[], owned:[], tribes:{}, opponents:[], oppSel:{}, oppName:'', boardShot:null, minSearch:'', oppShot:null },
+  bg:{ hero:null, tier:1, turn:1, hp:40, gold:3, refreshes:0, tavern:[], owned:[], tribes:{}, opponents:[], oppIdx:0, boardShot:null, minSearch:'' },
   history:[],
   imported:0,
   browser:{ cls:'ALL', cost:'', q:'', limit:12, coll:'collect', hidden:false },
@@ -776,7 +776,7 @@ function decksView(){
       h += '<div class="seg" style="margin-top:10px;margin-bottom:8px;">';
       h += '<button '+(deckPage<=1?'disabled':'')+' onclick="if(deckPage>1)deckPage--;render();">上一页</button>';
       h += '<button style="cursor:default;color:var(--text);">'+deckPage+' / '+deckPages+'</button>';
-      h += '<button '+(deckPage>=deckPages?'disabled':'')+' onclick="if(deckPage<deckPages)deckPage++;render();">下一页</button>';
+      h += '<button '+(deckPage>=deckPages?'disabled':'')+' onclick="deckPage++;render();">下一页</button>';
       h += '</div>';
     }
     h += '<div style="font-size:10px;color:var(--muted);margin-top:8px;">来源：'+esc(deckDB.source||'公开源')+'。点「使用」即解码、收藏并载入对局。</div>';
@@ -1020,7 +1020,8 @@ function battlegroundsView(){
   h += '<span style="margin-left:auto;font-size:10px;color:var(--muted);">'+b.owned.length+' 个随从</span>';
   h += '</div>';
   if(b.boardShot){
-    h += '<img src="'+b.boardShot+'" style="width:100%;border-radius:10px;margin-bottom:8px;display:block;">';
+    h += '<img src="'+b.boardShot+'" style="width:100%;border-radius:10px;margin-bottom:6px;display:block;">';
+    h += '<button class="btn gray" style="width:100%;margin-bottom:8px;" onclick="delBgBoardShot()">删除棋盘截图</button>';
   }
   h += '<button class="btn gray block" onclick="bgImportBoard()">导入棋盘截图</button>';
   if(b.owned.length===0){
@@ -1057,34 +1058,34 @@ function battlegroundsView(){
 
   h += '<div class="panel">';
   h += '<div class="panel-title"><span class="dot" style="background:var(--blue)"></span>对手阵容记录';
-  h += '<span style="margin-left:auto;font-size:10px;color:var(--muted);">'+b.opponents.length+' 位</span></div>';
-  if(b.opponents.length){
-    b.opponents.forEach(function(o,i){
-      h += '<div class="card-row"><div class="info"><div class="nm">'+esc(o.name)+'</div>'+
-        '<div class="sub">第 '+o.turn+' 回合 · '+(o.tribes.length?esc(o.tribes.join('、')):'未选种族')+'</div>'+
-        (o.shot?('<div style="font-size:9px;color:var(--muted);margin-top:2px;">含截图</div>'):'')+
-        '</div>'+
-        '<div class="micro"><button onclick="removeBgOpp('+i+')">删除</button></div></div>';
-      if(o.shot){
-        h += '<img src="'+o.shot+'" style="width:100%;border-radius:10px;margin-top:6px;display:block;">';
-      }
-    });
-  }else{
-    h += '<div style="font-size:11px;color:var(--muted);">还没有记录。导入对手截图后点选主力种族点「记录」，即可追踪本局遇到的所有阵容。</div>';
+  h += '<span style="margin-left:auto;font-size:10px;color:var(--muted);">第 '+b.turn+' 回合 · 6 位</span></div>';
+  while(b.opponents.length<6) b.opponents.push({name:'',tribes:[],shot:null,defeated:false,turn:0});
+  h += '<div class="seg" style="margin-bottom:8px;flex-wrap:wrap;">';
+  for(var _oi=0;_oi<6;_oi++){
+    var _oc=b.opponents[_oi];
+    var _has=_oc.tribes.length>0||_oc.shot;
+    h += '<button class="'+(b.oppIdx===_oi?'on':'')+'" onclick="selBgOpp('+_oi+')">'+( _oi+1 )+(_has?'·':'')+(_oc.defeated?'败':'')+'</button>';
   }
-  h += '<button class="btn gray block" style="margin-top:10px;" onclick="bgImportOppShot()">导入对手截图</button>';
-  if(b.oppShot){
-    h += '<img src="'+b.oppShot+'" style="width:100%;border-radius:10px;margin-top:8px;display:block;">';
+  h += '</div>';
+  var cur=b.opponents[b.oppIdx];
+  h += '<div style="font-size:11px;color:var(--muted);margin-bottom:8px;">对手'+(b.oppIdx+1)+(cur.defeated?' · <span style="color:var(--red);">已落败</span>':'')+'</div>';
+  if(cur.shot){
+    h += '<img src="'+cur.shot+'" style="width:100%;border-radius:10px;margin-bottom:6px;display:block;">';
+    h += '<button class="btn gray" style="width:100%;margin-bottom:8px;" onclick="delBgOppShot()">删除截图</button>';
   }
-  h += '<input value="'+esc(b.oppName||'')+'" oninput="state.bg.oppName=this.value" placeholder="对手名称（如：机械哥布林）" style="width:100%;background:#0F131A;color:var(--text);border:1px solid var(--line2);border-radius:10px;padding:9px 11px;font-size:12px;margin-top:10px;box-sizing:border-box;">';
+  h += '<button class="btn gray block" onclick="bgImportOppShot()">导入对手截图</button>';
+  h += '<input value="'+esc(cur.name||'')+'" oninput="state.bg.opponents['+b.oppIdx+'].name=this.value" placeholder="对手名称（如：机械哥布林）" style="width:100%;background:#0F131A;color:var(--text);border:1px solid var(--line2);border-radius:10px;padding:9px 11px;font-size:12px;margin-top:10px;box-sizing:border-box;">';
   h += '<div class="tribe-wrap" style="margin-top:8px;">';
   tribes.forEach(function(t){
-    var on = b.oppSel && b.oppSel[t];
+    var on = (cur.tribes||[]).indexOf(t)>-1;
     h += '<button class="tribe '+(on?'on':'')+'" onclick="toggleBgOppTribe(\''+t+'\')">'+t+'</button>';
   });
   h += '</div>';
-  h += '<button class="btn blue block" style="margin-top:10px;" onclick="addBgOpponent()">记录该对手阵容</button>';
-  h += '<div style="font-size:10px;color:var(--muted);margin-top:6px;">截图随记录保存、对局中可对照查看；由于网页无法自动识别游戏画面，阵容为对照截图手动点选。</div>';
+  h += '<div class="settle-row" style="margin-top:10px;">';
+  h += '<button class="btn blue" style="flex:1;" onclick="addBgOpponent()">记录该对手</button>';
+  h += '<button class="btn red" style="flex:1;" onclick="markBgOppDefeat()">'+(cur.defeated?'取消落败':'落败')+'</button>';
+  h += '</div>';
+  h += '<div style="font-size:10px;color:var(--muted);margin-top:6px;">上方导航栏可分别记录 6 位对手的阵容与截图；「落败」标记你输给该对手。网页无法自动识别画面，阵容为对照截图点选。</div>';
   h += '</div>';
 
   h += '<button class="btn primary block" onclick="bgEndTurn()" style="margin-bottom:14px;">结束回合</button>';
@@ -1142,7 +1143,27 @@ function sellMinion(i){
   mm.sold=true; b.gold+=1; render();
 }
 function toggleTribe(t){ var b=state.bg; b.tribes[t]=!b.tribes[t]; render(); }
-function toggleBgOppTribe(t){ var b=state.bg; b.oppSel=b.oppSel||{}; b.oppSel[t]=!b.oppSel[t]; render(); }
+function selBgOpp(i){ state.bg.oppIdx=i; render(); }
+function toggleBgOppTribe(t){
+  var b=state.bg;
+  while(b.opponents.length<6) b.opponents.push({name:'',tribes:[],shot:null,defeated:false,turn:0});
+  var cur=b.opponents[b.oppIdx]; cur.tribes=cur.tribes||[];
+  var k=cur.tribes.indexOf(t);
+  if(k>-1){ cur.tribes.splice(k,1); } else { cur.tribes.push(t); }
+  render();
+}
+function addBgOpponent(){
+  var b=state.bg;
+  while(b.opponents.length<6) b.opponents.push({name:'',tribes:[],shot:null,defeated:false,turn:0});
+  var cur=b.opponents[b.oppIdx]; cur.turn=b.turn;
+  render();
+}
+function markBgOppDefeat(){
+  var b=state.bg, cur=b.opponents[b.oppIdx]||{defeated:false};
+  cur.defeated=!cur.defeated; render();
+}
+function delBgOppShot(){ var b=state.bg; if(b.opponents[b.oppIdx]) b.opponents[b.oppIdx].shot=null; render(); }
+function delBgBoardShot(){ state.bg.boardShot=null; render(); }
 /* 截图导入：读取本地图片为 dataURL 用于展示/留存（浏览器无法自动识别画面，仅作对照记录） */
 function readImgFile(target, cb){
   var f=target&&target.files&&target.files[0];
@@ -1157,7 +1178,7 @@ function pickImage(cb){
   inp.click();
 }
 function bgImportBoard(){ pickImage(function(d){ state.bg.boardShot=d; render(); }); }
-function bgImportOppShot(){ pickImage(function(d){ state.bg.oppShot=d; render(); }); }
+function bgImportOppShot(){ pickImage(function(d){ var b=state.bg; while(b.opponents.length<6) b.opponents.push({name:'',tribes:[],shot:null,defeated:false,turn:0}); b.opponents[b.oppIdx].shot=d; render(); }); }
 function addOwnedMinion(name){
   var b=state.bg;
   var pool=(bgDB.loaded&&bgDB.minions.length)?bgDB.minions:bgPool;
@@ -1167,14 +1188,6 @@ function addOwnedMinion(name){
   if(mm.tribe){ b.tribes[mm.tribe]=true; }
   render();
 }
-function addBgOpponent(){
-  var b=state.bg, sel=[];
-  for(var t in (b.oppSel||{})){ if(b.oppSel[t]) sel.push(t); }
-  var name=(b.oppName||'').trim()||('对手'+(b.opponents.length+1));
-  b.opponents.push({name:name,tribes:sel,turn:b.turn,shot:b.oppShot||null});
-  b.oppSel={}; b.oppName=''; b.oppShot=null; render();
-}
-function removeBgOpp(i){ state.bg.opponents.splice(i,1); render(); }
 function bgEndTurn(){
   var b=state.bg;
   b.turn++; b.gold=3+b.tier; b.refreshes=0; render();
@@ -1182,7 +1195,7 @@ function bgEndTurn(){
 function bgSettle(res){
   record('酒馆战棋', state.bg.hero?state.bg.hero.name:'酒馆对局', res, state.bg.turn);
   state.bg.hero=null; state.bg.tavern=[]; state.bg.owned=[]; state.bg.tribes={};
-  state.bg.opponents=[]; state.bg.oppSel={}; state.bg.oppName=''; state.bg.boardShot=null; state.bg.minSearch=''; state.bg.oppShot=null;
+  state.bg.opponents=[]; state.bg.oppIdx=0; state.bg.boardShot=null; state.bg.minSearch='';
   render();
 }
 
