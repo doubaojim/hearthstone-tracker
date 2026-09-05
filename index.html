@@ -1063,6 +1063,7 @@ function battlegroundsView(){
     h += '<button class="btn gray" style="width:100%;margin-bottom:8px;" onclick="delBgBoardShot()">删除棋盘截图</button>';
   }
   h += '<button class="btn gray block" onclick="bgImportBoard()">导入棋盘截图</button>';
+  h += '<div style="font-size:10px;color:var(--muted);margin:6px 0 2px;">提示：iOS 快捷指令截图后「分享」到本应用，可自动上传并智能识别随从阵容。</div>';
   if(b.owned.length===0){
     h += '<div style="font-size:11px;color:var(--muted);margin:8px 0;">还没有记录随从。导入截图后可对照截图，从下方点选随从添加。</div>';
   }else{
@@ -1098,7 +1099,7 @@ function battlegroundsView(){
   h += '<div class="panel">';
   h += '<div class="panel-title"><span class="dot" style="background:var(--blue)"></span>对手阵容';
   h += '<span style="margin-left:auto;font-size:10px;color:var(--muted);">第 '+b.turn+' 回合 · 6 位</span></div>';
-  while(b.opponents.length<6) b.opponents.push({name:'',tribes:[],shot:null,defeated:false,turn:0});
+  while(b.opponents.length<6) b.opponents.push({name:'',tribes:[],shot:null,defeated:false,turn:0,minions:[]});
   h += '<div class="seg" style="margin-bottom:8px;flex-wrap:wrap;">';
   for(var _oi=0;_oi<6;_oi++){
     var _oc=b.opponents[_oi];
@@ -1113,6 +1114,15 @@ function battlegroundsView(){
     h += '<button class="btn gray" style="width:100%;margin-bottom:8px;" onclick="delBgOppShot()">删除截图</button>';
   }
   h += '<button class="btn gray block" onclick="bgImportOppShot()">导入对手截图</button>';
+  cur.minions=cur.minions||[];
+  if(cur.minions.length){
+    h += '<div style="font-size:10px;color:var(--muted);margin:8px 0 4px;">识别随从（'+cur.minions.length+'）：</div>';
+    h += '<div class="h-scroll">';
+    cur.minions.forEach(function(mm){
+      h += minionCard({name:mm.name,cost:mm.cost,tribe:mm.tribe||'',tier:mm.tier||1,a:mm.a||1,h:mm.h||1});
+    });
+    h += '</div>';
+  }
   h += '<input value="'+esc(cur.name||'')+'" oninput="state.bg.opponents['+b.oppIdx+'].name=this.value" placeholder="对手名称（如：机械哥布林）" style="width:100%;background:#0F131A;color:var(--text);border:1px solid var(--line2);border-radius:10px;padding:9px 11px;font-size:12px;margin-top:10px;box-sizing:border-box;">';
   h += '<div class="tribe-wrap" style="margin-top:8px;">';
   tribes.forEach(function(t){
@@ -1124,7 +1134,7 @@ function battlegroundsView(){
   h += '<button class="btn blue" style="flex:1;" onclick="addBgOpponent()">记录该对手</button>';
   h += '<button class="btn red" style="flex:1;" onclick="markBgOppDefeat()">'+(cur.defeated?'取消落败':'落败')+'</button>';
   h += '</div>';
-  h += '<div style="font-size:10px;color:var(--muted);margin-top:6px;">上方导航栏可分别记录 6 位对手的阵容与截图；「落败」标记你输给该对手。网页无法自动识别画面，阵容为对照截图点选。</div>';
+  h += '<div style="font-size:10px;color:var(--muted);margin-top:6px;">上方导航栏可分别记录 6 位对手的阵容与截图；「落败」标记你输给该对手。iOS 快捷指令截图后「分享」到本应用可自动上传并智能识别随从；识别率有限，可手动点选修正。</div>';
   h += '</div>';
 
   h += '<button class="btn primary block" onclick="bgEndTurn()" style="margin-bottom:14px;">结束回合</button>';
@@ -1185,7 +1195,7 @@ function toggleTribe(t){ var b=state.bg; b.tribes[t]=!b.tribes[t]; render(); }
 function selBgOpp(i){ state.bg.oppIdx=i; render(); }
 function toggleBgOppTribe(t){
   var b=state.bg;
-  while(b.opponents.length<6) b.opponents.push({name:'',tribes:[],shot:null,defeated:false,turn:0});
+  while(b.opponents.length<6) b.opponents.push({name:'',tribes:[],shot:null,defeated:false,turn:0,minions:[]});
   var cur=b.opponents[b.oppIdx]; cur.tribes=cur.tribes||[];
   var k=cur.tribes.indexOf(t);
   if(k>-1){ cur.tribes.splice(k,1); } else { cur.tribes.push(t); }
@@ -1193,7 +1203,7 @@ function toggleBgOppTribe(t){
 }
 function addBgOpponent(){
   var b=state.bg;
-  while(b.opponents.length<6) b.opponents.push({name:'',tribes:[],shot:null,defeated:false,turn:0});
+  while(b.opponents.length<6) b.opponents.push({name:'',tribes:[],shot:null,defeated:false,turn:0,minions:[]});
   var cur=b.opponents[b.oppIdx]; cur.turn=b.turn;
   render();
 }
@@ -1500,6 +1510,104 @@ function signalFromURL(){
   }
   return true;
 }
+/* 通道三：iOS 快捷指令截图 → 分享到 PWA（Web Share Target）→ SW 缓存 → 页面接收分析 */
+var pendingShot=null, pendingOCRMinions=[];
+function receiveSharedShot(){
+  if(location.search.indexOf('shared=1')<0) return;
+  history.replaceState(null,'',location.pathname+location.hash);
+  fetch('./shared-shot').then(function(r){ if(!r.ok) throw 0; return r.blob(); })
+    .then(function(blob){
+      var fr=new FileReader();
+      fr.onload=function(){ showShotImportSheet(fr.result); };
+      fr.readAsDataURL(blob);
+    }).catch(function(){ toast('未收到分享截图，请确认已安装到主屏幕'); });
+}
+function showShotImportSheet(dataURL){
+  pendingShot=dataURL; pendingOCRMinions=[];
+  var m=document.getElementById('modalMask'), s=document.getElementById('sheet');
+  s.innerHTML='<div style="font-size:14px;font-weight:600;margin-bottom:8px;">收到快捷指令截图</div>'+
+    '<img src="'+dataURL+'" style="width:100%;border-radius:10px;margin-bottom:10px;max-height:38vh;object-fit:contain;background:#000;display:block;">'+
+    '<div style="font-size:11px;color:var(--muted);margin-bottom:10px;">选择保存位置，或先智能识别随从阵容：</div>'+
+    '<div class="settle-row" style="margin-bottom:8px;">'+
+      '<button class="btn blue" style="flex:1;" onclick="saveShotTo(\'my\',false)">我方阵容</button>'+
+      '<button class="btn blue" style="flex:1;" onclick="saveShotTo(\'opp\',false)">对手阵容</button>'+
+    '</div>'+
+    '<button class="btn gray block" onclick="analyzeAndSaveShot()">智能识别随从阵容</button>'+
+    '<button class="btn gray block" style="margin-top:8px;" onclick="closeModal()">取消</button>';
+  m.classList.add('show');
+}
+function saveShotTo(side, useOCR){
+  if(!pendingShot) return;
+  var b=state.bg;
+  if(side==='my'){
+    b.boardShot=pendingShot;
+    if(useOCR && pendingOCRMinions.length){
+      pendingOCRMinions.forEach(function(mm){
+        b.owned.push({name:mm.name,cost:mm.cost,tribe:mm.tribe||'',tier:mm.tier||1,a:mm.a||1,h:mm.h||1,sold:false,tripled:false});
+        if(mm.tribe) b.tribes[mm.tribe]=true;
+      });
+    }
+  } else {
+    while(b.opponents.length<6) b.opponents.push({name:'',tribes:[],shot:null,defeated:false,turn:0,minions:[]});
+    var cur=b.opponents[b.oppIdx]; cur.shot=pendingShot; cur.turn=b.turn;
+    if(useOCR && pendingOCRMinions.length){
+      cur.minions=cur.minions||[];
+      pendingOCRMinions.forEach(function(mm){
+        cur.minions.push({name:mm.name,cost:mm.cost,tribe:mm.tribe||'',tier:mm.tier||1,a:mm.a||1,h:mm.h||1});
+        if(mm.tribe && cur.tribes.indexOf(mm.tribe)<0) cur.tribes.push(mm.tribe);
+      });
+    }
+  }
+  pendingShot=null; pendingOCRMinions=[]; closeModal(); save(); render();
+  toast('已保存到'+(side==='my'?'我方阵容':'对手阵容')+(useOCR&&pendingOCRMinions?'（含识别随从）':''));
+}
+function analyzeAndSaveShot(){
+  if(!pendingShot) return;
+  if(!window.Tesseract){
+    toast('正在加载识别引擎…');
+    var sc=document.createElement('script');
+    sc.src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+    sc.onload=function(){ runOCR(pendingShot); };
+    sc.onerror=function(){ toast('识别引擎加载失败'); };
+    document.head.appendChild(sc);
+  } else { runOCR(pendingShot); }
+}
+function runOCR(dataURL){
+  toast('正在识别截图文字（首次需下载中文模型）…');
+  Tesseract.recognize(dataURL,'chi_sim').then(function(res){
+    var text=(res&&res.data&&res.data.text)||'';
+    var matched=matchMinionsFromText(text);
+    pendingOCRMinions=matched;
+    showOCRResultSheet(dataURL, text, matched);
+  }).catch(function(){ toast('识别失败，请保存截图后手动点选'); });
+}
+function matchMinionsFromText(text){
+  var pool=(bgDB.loaded&&bgDB.minions.length)?bgDB.minions:bgPool;
+  var t=String(text||'').replace(/\s+/g,'');
+  var matched=[];
+  pool.forEach(function(m){
+    if(!m||!m.name) return;
+    var nm=String(m.name).replace(/\s+/g,'');
+    if(nm.length>=2 && t.indexOf(nm)>-1) matched.push(m);
+  });
+  return matched.slice(0,14);
+}
+function showOCRResultSheet(dataURL, text, matched){
+  pendingShot=dataURL;
+  var m=document.getElementById('modalMask'), s=document.getElementById('sheet');
+  var list=matched.length? matched.map(function(mm){
+    return '<div style="font-size:11px;padding:3px 0;color:var(--text);">· '+esc(mm.name)+' <span style="color:var(--muted);">('+(mm.cost!=null?mm.cost:'?')+'星 · '+esc(mm.tribe||'无')+')</span></div>';
+  }).join('') : '<div style="font-size:11px;color:var(--muted);">未识别到随从名称（炉石艺术字体识别率有限），可保存截图后手动点选。</div>';
+  s.innerHTML='<div style="font-size:14px;font-weight:600;margin-bottom:6px;">识别结果（'+matched.length+' 个随从）</div>'+
+    '<div style="max-height:28vh;overflow-y:auto;margin-bottom:10px;">'+list+'</div>'+
+    '<div class="settle-row" style="margin-bottom:8px;">'+
+      '<button class="btn blue" style="flex:1;" onclick="saveShotTo(\'my\',true)">保存到我方</button>'+
+      '<button class="btn blue" style="flex:1;" onclick="saveShotTo(\'opp\',true)">保存到对手</button>'+
+    '</div>'+
+    '<button class="btn gray block" onclick="showShotImportSheet(pendingShot)">返回</button>'+
+    '<button class="btn gray block" style="margin-top:8px;" onclick="closeModal()">取消</button>';
+  m.classList.add('show');
+}
 /* 通道二：快捷指令写入剪贴板标记 HS_START，切回前台时读取 */
 function readClipboardSignal(){
   if(!navigator.clipboard || !navigator.clipboard.readText) return maybeNewMatchBanner();
@@ -1539,6 +1647,7 @@ loadCardDB(); /* 启动时后台自动连接/更新传统卡牌数据 */
 loadBGDB();   /* 启动时后台自动连接/更新酒馆战棋数据 */
 loadDeckDB(); /* 启动时后台自动连接/更新卡组库 */
 signalFromURL(); /* 快捷指令带参打开时自动开始新对局（?hs=start） */
+receiveSharedShot(); /* 快捷指令截图分享到 PWA 后接收分析（?shared=1） */
 render();
 
 /* Service Worker 注册（不支持时静默降级） */
