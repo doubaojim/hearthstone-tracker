@@ -1,10 +1,10 @@
 /* 炉石记牌器 PWA Service Worker
  * 策略：应用壳缓存优先，白名单 CDN（图标 / 卡牌库 / iOS 设备框 SDK）网络优先 + 缓存兜底。
  */
-const VERSION = 'hs-tracker-v1';
+const VERSION = 'hs-tracker-v3';
 const SHELL = ['./', './index.html', './manifest.webmanifest'];
 const SHARED_CACHE = 'hs-shared-shots';
-const SHARED_KEY = location.origin + location.pathname + 'shared-shot';
+const SHARED_KEY = location.origin + location.pathname.replace(/sw\.js$/, '') + 'shared-shot';
 
 self.addEventListener('install', function (event) {
   event.waitUntil(
@@ -17,7 +17,7 @@ self.addEventListener('install', function (event) {
 self.addEventListener('activate', function (event) {
   event.waitUntil(
     caches.keys().then(function (keys) {
-      return Promise.all(keys.filter(function (k) { return k !== VERSION; })
+      return Promise.all(keys.filter(function (k) { return k !== VERSION && k !== SHARED_CACHE; })
         .map(function (k) { return caches.delete(k); }));
     }).then(function () { return self.clients.claim(); })
   );
@@ -34,6 +34,12 @@ self.addEventListener('fetch', function (event) {
     event.respondWith(
       event.request.formData().then(function (fd) {
         var file = fd.get('screenshot');
+        /* 兼容：快捷指令/系统分享可能用其他字段名，遍历找第一个图片文件 */
+        if ((!file || !file.size) && fd.forEach) {
+          fd.forEach(function (v, k) {
+            if (!file && v && v.size && v.type && String(v.type).indexOf('image/') === 0) { file = v; }
+          });
+        }
         if (file && file.size > 0) {
           return caches.open(SHARED_CACHE).then(function (cache) {
             return cache.put(SHARED_KEY, new Response(file, { headers: { 'Content-Type': file.type || 'image/png' } }));

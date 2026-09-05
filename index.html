@@ -1535,8 +1535,10 @@ function receiveSharedShot(){
   history.replaceState(null,'',location.pathname+location.hash);
   fetch('./shared-shot').then(function(r){ if(!r.ok) throw 0; return r.blob(); })
     .then(function(blob){
+      if(!blob || blob.size===0){ toast('分享截图为空，请重新截图分享'); return; }
       var fr=new FileReader();
       fr.onload=function(){ showShotImportSheet(fr.result); };
+      fr.onerror=function(){ toast('截图读取失败，请重试'); };
       fr.readAsDataURL(blob);
     }).catch(function(){ toast('未收到分享截图，请确认已安装到主屏幕'); });
 }
@@ -1544,7 +1546,8 @@ function showShotImportSheet(dataURL){
   pendingShot=dataURL; pendingOCRMinions=[];
   var m=document.getElementById('modalMask'), s=document.getElementById('sheet');
   s.innerHTML='<div style="font-size:14px;font-weight:600;margin-bottom:8px;">收到快捷指令截图</div>'+
-    '<img src="'+dataURL+'" style="width:100%;border-radius:10px;margin-bottom:10px;max-height:38vh;object-fit:contain;background:#000;display:block;">'+
+    '<img id="sharedShotImg" src="'+dataURL+'" onerror="document.getElementById(\'sharedShotErr\').style.display=\'block\';this.style.display=\'none\';" style="width:100%;border-radius:10px;margin-bottom:10px;max-height:38vh;object-fit:contain;background:#000;display:block;">'+
+    '<div id="sharedShotErr" style="display:none;font-size:11px;color:var(--red);margin-bottom:10px;padding:8px 10px;background:rgba(234,102,104,.1);border-radius:8px;">图片加载失败，截图格式可能不兼容，请重新截图后分享。</div>'+
     '<div style="font-size:11px;color:var(--muted);margin-bottom:10px;">选择保存位置，或先智能识别随从阵容：</div>'+
     '<div class="settle-row" style="margin-bottom:8px;">'+
       '<button class="btn blue" style="flex:1;" onclick="saveShotTo(\'my\',false)">我方阵容</button>'+
