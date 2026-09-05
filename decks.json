@@ -1,7 +1,7 @@
 {
  "source": "旅法师营地、网易大神等公开卡组文章（每日自动抓取校验）",
  "note": "炉石盒子卡组库为私有无接口，本库从旅法师营地/网易大神公开攻略文章抓取套牌代码，解码校验为标准/狂野卡组；每日自动更新。",
- "updated": "2026-09-05",
+ "updated": "2026-09-06",
  "decks": [
   {
    "name": "海盗战",
@@ -65,7 +65,7 @@
    "format": "标准",
    "code": "AAECAQcC9ZgH150HDp+fBIagBI7UBJDUBJzUBOPmBsyPB+CdB9WmB+SnB/yvB4+xB9CyB5zCBwAA",
    "source": "网易大神 卡组推荐",
-   "date": "2026-09-05"
+   "date": "2026-09-06"
   },
   {
    "name": "无牌猎",
@@ -73,7 +73,7 @@
    "format": "标准",
    "code": "AAECAR8EmacHmqcHm6cHhMQHDamfBKqfBNOeBq+SB4WVB86bB+6fB5CnB5inB9SvB7TAB7nAB7vABwAA",
    "source": "网易大神 卡组推荐",
-   "date": "2026-09-05"
+   "date": "2026-09-06"
   },
   {
    "name": "法术瞎",
@@ -81,7 +81,7 @@
    "format": "标准",
    "code": "AAECAea5AwbsoASKqgeSqgeTqgensQeUvwcM4fgF3v8G/oMHqocHtJcHtpcHnrEHobEHv7EHwLEH6LEHlb8HAAA=",
    "source": "网易大神 卡组推荐",
-   "date": "2026-09-05"
+   "date": "2026-09-06"
   },
   {
    "name": "邪DK",
@@ -89,7 +89,7 @@
    "format": "标准",
    "code": "AAECAfHhBALtnweOvwcOhfYE1J4G1+UGyIwHupUHopcHvJoH0JsH0q0HhrEH4rEHiL8H/78HtcAHAAA=",
    "source": "网易大神 标准周报",
-   "date": "2026-09-05"
+   "date": "2026-09-06"
   },
   {
    "name": "邪能兆示瞎",
@@ -97,7 +97,7 @@
    "format": "标准",
    "code": "AAECAea5AwqCmAeKqgeSqgeTqgfisQePvgeUvwfQvwfUyQeb1AcKtp8E3v8GpYgHtJcHtpcHjb8Hkr8Hlb8Hl78H4L8HAAA=",
    "source": "网易大神 标准周报",
-   "date": "2026-09-05"
+   "date": "2026-09-06"
   },
   {
    "name": "灌注德",
@@ -105,7 +105,7 @@
    "format": "标准",
    "code": "AAECAcaLBwSqgQfygwevhwfgwAcNrp8EgdQE4IEH4oEHiIMHsIcHpIkHlJcHqq8H1sAH18AH28AH7MAHAA==",
    "source": "网易大神 标准周报",
-   "date": "2026-09-05"
+   "date": "2026-09-06"
   },
   {
    "name": "快攻猎",
@@ -113,7 +113,7 @@
    "format": "标准",
    "code": "AAECAR8EmacHmqcHm6cHxbEHDamfBKqfBK+SB4WVB86bB+6fB5CnB5inB9SvB8GyB7TAB7nAB7vABwAA",
    "source": "网易大神 标准周报",
-   "date": "2026-09-05"
+   "date": "2026-09-06"
   },
   {
    "name": "直伤法",
@@ -121,7 +121,7 @@
    "format": "标准",
    "code": "AAECAc2xAgSXoASzhweIvgeRxgcNheYGsocHx4cHn5YH6KUHi7EH1rIH1rwHhsQHksQHm8QHrMYHk9oHAA==",
    "source": "网易大神 标准周报",
-   "date": "2026-09-05"
+   "date": "2026-09-06"
   },
   {
    "name": "任务法",
@@ -129,7 +129,7 @@
    "format": "标准",
    "code": "AAECAf0EBu/8BsODB6ebB/mbB/KyB//fBwyb8gazhwfxkQewmwf6mwfRpgfLtgf5wweGxAeSxAeT2geG4AcAAA==",
    "source": "网易大神 标准周报",
-   "date": "2026-09-05"
+   "date": "2026-09-06"
   },
   {
    "name": "光环骑",
@@ -137,7 +137,7 @@
    "format": "标准",
    "code": "AAECAZ8FCvD+Bsj/BrSBB8ODB+6oB++oB/CoB/SqB+XBB6vGBwrJoATv/ga6lgebqQfLqQfErge+sgfiwQfowQfqwQcAAA==",
    "source": "网易大神 标准周报",
-   "date": "2026-09-05"
+   "date": "2026-09-06"
   },
   {
    "name": "兆示贼",
@@ -145,7 +145,7 @@
    "format": "标准",
    "code": "AAECAcKPBA6RnwShgQeSgwfDgweCmAfspQeGqAeHqAeIqAe2sgfQvweK1Aeb1AeI2QcI958EwZcHjK0H2a8HtMEHwMEHncUH1cUHAAA=",
    "source": "网易大神 标准周报",
-   "date": "2026-09-05"
+   "date": "2026-09-06"
   },
   {
    "name": "兆示萨",
@@ -153,7 +153,7 @@
    "format": "标准",
    "code": "AAECAYHaAwqvnwTDgweCmAfbpgffpgflpgePvgfQvweC1Aeb1AcK/Z8E5pYH9awHsbAHvLEHw8AHycAH98AH9sEH5v0HAAA=",
    "source": "网易大神 标准周报",
-   "date": "2026-09-05"
+   "date": "2026-09-06"
   },
   {
    "name": "兆示蛋术",
@@ -161,7 +161,7 @@
    "format": "标准",
    "code": "AAECAf0GBNGCB/WYB+ybB9edBw2PnwSxnwSRoATnoATEngbrhAepiAeEmQfgnQeTvgfXvgfYvgfgvgcAAA==",
    "source": "网易大神 标准周报",
-   "date": "2026-09-05"
+   "date": "2026-09-06"
   },
   {
    "name": "大哥战",
@@ -169,7 +169,7 @@
    "format": "标准",
    "code": "AAECAePjAwSx/QaSgweEnQeb1AcNn58EjtQE4+YGp/wGqfwG6IcH1aYH4qcH/K8H0LIHy7YHm8IHnMIHAAA=",
    "source": "网易大神 标准周报",
-   "date": "2026-09-05"
+   "date": "2026-09-06"
   },
   {
    "name": "兆示龙战",
@@ -177,7 +177,7 @@
    "format": "标准",
    "code": "AAECAfm1BwS3rQfQvwfOyQeb1AcNqvwGq/wG94MH6IcH0pcHj7EH0LIH7LIHhL0HtcAHr8EH+cMHoMUHAAA=",
    "source": "网易大神 标准周报",
-   "date": "2026-09-05"
+   "date": "2026-09-06"
   },
   {
    "name": "海龙战",
@@ -185,7 +185,7 @@
    "format": "标准",
    "code": "AAECAQcE69YHstgHp+AHq+AHDePmBqr8Bqv8BqWFB+iHB9KXB+yyB7XAB5XCB5zCB6bgB6ngB/vgBwAA",
    "source": "旅法师营地 36.4.2 标准卡组推荐",
-   "date": "2026-09-05"
+   "date": "2026-09-06"
   },
   {
    "name": "随从萨",
@@ -193,7 +193,7 @@
    "format": "标准",
    "code": "AAECAaoICNOeBvSqB9C/B4LUB5vUB9DbB4jdB9/lBwue1ATt5gbXlwfgnQftrAexsAePvgfJwAfJ2wfI5Qfm/QcAAA==",
    "source": "旅法师营地 36.4.2 标准卡组推荐",
-   "date": "2026-09-05"
+   "date": "2026-09-06"
   },
   {
    "name": "潜行兆示贼",
@@ -201,7 +201,7 @@
    "format": "标准",
    "code": "AAECAaIHDKGBB5KDB4KYB+ylB4aoB4eoB4ioB9C/B4rUB5vUB4jZB9DgBwn3nwTBlwe0wQfAwQedxQfVxQej4AfO4AfD8gcAAA==",
    "source": "旅法师营地 36.4.2 标准卡组推荐",
-   "date": "2026-09-05"
+   "date": "2026-09-06"
   },
   {
    "name": "龙战",
@@ -209,7 +209,7 @@
    "format": "标准",
    "code": "AAECAQcC69YHstgHDuPmBqr8Bqv8BqWFB+iHB9KXB7etB+yyB7XAB5XCB5vCB5zCB6ngB/vgBwAA",
    "source": "旅法师营地 36.4.2 标准卡组推荐",
-   "date": "2026-09-05"
+   "date": "2026-09-06"
   },
   {
    "name": "任务牧",
@@ -217,7 +217,7 @@
    "format": "标准",
    "code": "AAECAa0GBoSfBMODB4WGB6iWB9XgB9zgBwyG/QbFlAfkngfSrwebvweyxQevyQeT3wew3wfZ4Af04AeW/AcAAA==",
    "source": "旅法师营地 36.4.2 标准卡组推荐",
-   "date": "2026-09-05"
+   "date": "2026-09-06"
   },
   {
    "name": "海盗战",
@@ -225,7 +225,7 @@
    "format": "标准",
    "code": "AAECAQcEt60H69YHstgHq+AHDePmBqWFB8eHB+iHB9CyB5XCB5vCB5zCB6bgB6fgB6jgB6ngB/vgBwAA",
    "source": "旅法师营地 36.4.2 标准卡组推荐",
-   "date": "2026-09-05"
+   "date": "2026-09-06"
   },
   {
    "name": "兆示术",
@@ -233,7 +233,7 @@
    "format": "标准",
    "code": "AAECAf0GBNC/B5vUB63ZB9vgBw2PnwTnoATTngaEmQeTvgfYvgfgvgfd1wew2Qex2Qe32QeN3AeO3AcAAA==",
    "source": "旅法师营地 36.4.2 标准卡组推荐",
-   "date": "2026-09-05"
+   "date": "2026-09-06"
   },
   {
    "name": "虚空瞎",
@@ -241,7 +241,7 @@
    "format": "标准",
    "code": "AAECAea5AwSongbNngaD2gen9wcN4fgF0J4G054G3v8GtpcH550HobEHlb8HxN0Hxt0Hx90HteEHt+EHAAA=",
    "source": "旅法师营地 36.4.2 标准卡组推荐",
-   "date": "2026-09-05"
+   "date": "2026-09-06"
   },
   {
    "name": "阿雅贼",
@@ -249,7 +249,7 @@
    "format": "标准",
    "code": "AAECAaIHBoaoB4eoB4ioB+WvB6XYB4jZBwyRnwT3nwTZogbBlweSpAfLtge0wQfFwQfVxQek2AeR2QeN2gcAAA==",
    "source": "旅法师营地 36.4.2 标准卡组推荐",
-   "date": "2026-09-05"
+   "date": "2026-09-06"
   },
   {
    "name": "拉法姆 术",
@@ -257,7 +257,7 @@
    "format": "标准",
    "code": "AAECAf0GDs2eBtGCB4ilB4mlB4qlB5GlB5OlB5SlB5WlB5alB5elB5qlB63ZB9vgBw2PnwSxnwSpiAfiiQeEmQeqrQfQsgfXvgfgvgex2Qe32QeN3AeO3AcAAA==",
    "source": "旅法师营地 36.4.2 标准卡组推荐",
-   "date": "2026-09-05"
+   "date": "2026-09-06"
   },
   {
    "name": "光铸骑",
@@ -265,7 +265,7 @@
    "format": "标准",
    "code": "AAECAZ8FBvD+Bu6oB++oB/CoB+XBB5vdBwzJoAS6lgfLqQfErge+sgfiwQfowQfqwQeDwgerxgfc1Qea3QcAAA==",
    "source": "旅法师营地 36.4.2 标准卡组推荐",
-   "date": "2026-09-05"
+   "date": "2026-09-06"
   },
   {
    "name": "法术萨",
@@ -273,7 +273,7 @@
    "format": "标准",
    "code": "AAECAaoIAtDbB9/lBw6vnwTRmwfQnQfwqgf8rQe8sQfLtgfDwAfTwAfH2wfK2wfN2wfa3wfg9gcAAA==",
    "source": "旅法师营地 36.4.2 标准卡组推荐",
-   "date": "2026-09-05"
+   "date": "2026-09-06"
   },
   {
    "name": "克隆机械骑",
@@ -281,7 +281,7 @@
    "format": "狂野",
    "code": "AAEBAZ8FBJ+3A/mkBMekBp3dBw2l9QKHrgOStQTUvQTa0wSEpQXZ0AW5/gXi8Qa/+Qa6lgfa4gea/AcAAQTX/gKd3QfzswbHpAb2swbHpAaS7wbHpAYAAA==",
    "source": "旅法师营地 狂野高分段",
-   "date": "2026-09-05"
+   "date": "2026-09-06"
   },
   {
    "name": "任务超生瞎",
@@ -289,7 +289,7 @@
    "format": "狂野",
    "code": "AAEBAea5AwiRvAL39gOw+QPEuAb8wAaKqgeSqgeTqgcLqbwD8skDlc0DztID9fYDx6wEnJoG38AGsesGkr8Hk+gHAAA=",
    "source": "旅法师营地 狂野高分段",
-   "date": "2026-09-05"
+   "date": "2026-09-06"
   },
   {
    "name": "钩牙贼",
@@ -297,7 +297,7 @@
    "format": "狂野",
    "code": "AAEBAaIHCIUXkbwCt7MEr7YEzKAF/cQF0Z4Gs6kGC+0C9bsC890D958E16MFv/cF7p4G/KUGracGoLMGwZcHAAED4PoC/cQF5dED/cQFquoG/cQFAAA=",
    "source": "旅法师营地 狂野高分段",
-   "date": "2026-09-05"
+   "date": "2026-09-06"
   },
   {
    "name": "奥丁百甲战",
@@ -305,7 +305,7 @@
    "format": "狂野",
    "code": "AAEBAQcQ6awCjs4C9s8Cj84D9tYD5bAEl+8E/cQFpfYFofsF0Z4G7KkGusEGquoGw4MH7o8HDM/nAvmMBIy3BO/OBI7UBMSSBYuUBp+eBo6/BuqnB/yvB5TZBwABA/T1Av3EBdGeBv3EBeapBv3EBQAA",
    "source": "旅法师营地 狂野高分段",
-   "date": "2026-09-05"
+   "date": "2026-09-06"
   },
   {
    "name": "开门法",
@@ -313,7 +313,7 @@
    "format": "狂野",
    "code": "AAEBAf0EEvoO0MECoM4C9KsD5dEDne4DoIoE5bAEuNkEqd4El+8E/cQF95sG+JsGquoGqfUGw4MH25cHC8ABywTK3gTgwwXQ+AWQgwbRnga0pwbCvgaa9AazhwcAAQPl0QP9xAWTmwf9xAXqrAf9xAUAAA==",
    "source": "旅法师营地 狂野高分段",
-   "date": "2026-09-05"
+   "date": "2026-09-06"
   },
   {
    "name": "大哥术",
@@ -321,7 +321,7 @@
    "format": "狂野",
    "code": "AAEBAf0GBvoOj4ID5bAEl+8EnrgGrdkHEdwKnBCnzgLy0AKVzQPXzgPG+QOskQTO5AWt6QXI+AXO+gXjgAaJtQbDuAbgvgeN3AcAAA==",
    "source": "旅法师营地 狂野高分段",
-   "date": "2026-09-05"
+   "date": "2026-09-06"
   },
   {
    "name": "疲劳任务术",
@@ -329,7 +329,7 @@
    "format": "狂野",
    "code": "AAEBAf0GCPoOj4ID/KMDlc0DhPsDrOkFyPgFrdkHC7W5A9fOA+OABoSeBtOeBvahBvejBom1BsnkBoSZB43cBwAA",
    "source": "旅法师营地 狂野高分段",
-   "date": "2026-09-05"
+   "date": "2026-09-06"
   },
   {
    "name": "宇宙熔岩战",
@@ -337,7 +337,7 @@
    "format": "狂野",
    "code": "AAEBAQcoS8MW9s8Cz+cC/KMDuLkDj84Dk9AD9tYD+YwE+owElpUE5bAEjLYEjLcE784EjtQEuNkEl+8E4qQF/cQFofsFi5QGn54G0Z4Gx6QGkagGr6gG7KkG0LAG1boGjr8G+skG88oGquoG7o8H25cH6qcH/K8HlNkHAAABBu/OBP3EBfeXBv3EBdGeBv3EBfWzBsekBvezBsekBujeBsekBgAA",
    "source": "旅法师营地 狂野高分段",
-   "date": "2026-09-05"
+   "date": "2026-09-06"
   },
   {
    "name": "熔岩奥丁战",
@@ -345,7 +345,7 @@
    "format": "狂野",
    "code": "AAEBAQcM9s8Cj84D9tYDxfUD5bAEjtQExJIFpfYFyPgFquoGw4MHstgHCfmMBIy3BO/OBIuUBp+eBoegBo6/BuqnB/yvBwAA",
    "source": "旅法师营地 狂野高分段",
-   "date": "2026-09-05"
+   "date": "2026-09-06"
   },
   {
    "name": "类星体贼",
@@ -353,7 +353,7 @@
    "format": "狂野",
    "code": "AAEBAaIHCPgHgKYD958EwaEFv/cFracGpdgHr98HC/W7AufdA470A7ezBNW2BNrDBe6eBvLJBvLnBuTqBsGXBwAA",
    "source": "旅法师营地 狂野高分段",
-   "date": "2026-09-05"
+   "date": "2026-09-06"
   },
   {
    "name": "自残术",
@@ -361,7 +361,7 @@
    "format": "狂野",
    "code": "AAEBAf0GDPoO+NACj4ID+rADm80D5bAE/cQFyPgF0J4GlbMGhJkHrdkHCdwKlc0D184DwdEDzvoFxJ4Gw7gGyeQGjdwHAAEDvxb9xAX7sAP9xAWNtQT9xAUAAA==",
    "source": "旅法师营地 狂野高分段",
-   "date": "2026-09-05"
+   "date": "2026-09-06"
   },
   {
    "name": "爆牌德",
@@ -369,7 +369,7 @@
    "format": "狂野",
    "code": "AAEBAZICEuQIxf0C6LoDr4AEiYsE5bAEuNkEl+8E/cQFn/MF2/oFl6AG76kGpbsG88oGquoG25cH2cQHC+kBig6e0gKP9gKK4AOuwASE7wTTngaaoAaJoQaxzgYAAQPRngb9xAWXoAb9xAXp7Qb9xAUAAA==",
    "source": "旅法师营地 狂野高分段",
-   "date": "2026-09-05"
+   "date": "2026-09-06"
   },
   {
    "name": "暗牧",
@@ -377,7 +377,7 @@
    "format": "狂野",
    "code": "AAEBAa0GCPoO9xORvAK79wOX7wS5xAX9xAXX0gYQoQSRD7q2A633A4aDBd2kBa3pBcj4BYWOBtCeBsihBsSoBte6BtXBBuTqBqyUBwABA4f3A/3EBcChBv3EBbLFB/3EBQAA",
    "source": "旅法师营地 狂野高分段",
-   "date": "2026-09-05"
+   "date": "2026-09-06"
   }
  ]
 }
