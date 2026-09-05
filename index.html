@@ -551,7 +551,7 @@ function setClass(which, cls){
 function startMatch(){
   var m = state.match;
   m.turn=1; m.mana=1; m.manaMax=1; m.myDeck=30; m.myHand=0; m.oppDeck=30; m.oppHand=0;
-  m.myFatigue=0; m.oppFatigue=0; m.myPlayed=[]; m.oppPlayed=[];
+  m.myFatigue=0; m.oppFatigue=0; m.myPlayed=[]; m.oppPlayed=[]; m.oppSeen=[];
   state.trackers = cardPool.map(function(c){ return {name:c.name,cost:c.cost,tribe:c.tribe,total:c.total,deck:c.total,hand:0,played:0}; });
   state.matchActive=true; newMatchPrompted=false; save(); render();
 }
@@ -604,11 +604,21 @@ function constructedView(){
   h += '<div class="act-row">';
   h += '<button class="btn red" onclick="oppDraw()">对手抽牌</button>';
   h += '<button class="btn red" onclick="oppPlay()">对手出牌</button>';
+  h += '<button class="btn red" onclick="addOppCard()">记录开牌</button>';
   h += '</div>';
-  if(m.oppPlayed.length===0){
-    h += '<div style="font-size:11px;color:var(--muted);">尚未记录对手打出的牌</div>';
+  var seen = m.oppSeen||[];
+  if(seen.length>0){
+    h += '<div style="font-size:10px;color:var(--muted);margin:6px 0 2px;">已记录对手卡牌：</div>';
+    seen.forEach(function(r){
+      h += '<div class="card-row"><div class="info"><div class="nm">'+esc(r.name)+'</div></div><span class="pill red">×'+(r.count||1)+'</span></div>';
+    });
+    h += matchDeckSuggestion();
+  }
+  if(m.oppPlayed.length===0 && seen.length===0){
+    h += '<div style="font-size:11px;color:var(--muted);">尚未记录对手的牌。点「记录开牌」输入看到的对手卡牌，记牌器会自动匹配收藏卡组。</div>';
   }else{
     m.oppPlayed.forEach(function(r){
+      if(r.name==='未知卡牌') return;
       h += '<div class="card-row"><div class="info"><div class="nm">'+esc(r.name)+'</div></div><span class="pill red">×'+r.count+'</span></div>';
     });
   }
