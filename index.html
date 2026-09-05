@@ -861,18 +861,25 @@ function findHero(name){
   return null;
 }
 function heroIsBase(hh){
+  /* 皮肤以 _SKIN 后缀为准；无 _SKIN 即基础英雄（含 59t 等变体命名） */
   if(!hh.id) return true;
-  return /^TB_BaconShop_HERO_\d+$/.test(hh.id);
+  return hh.id.indexOf('_SKIN')===-1;
+}
+function heroArtFallback(el){
+  var fb='<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;"><svg width="26" height="26" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="9" r="4" stroke="var(--gold)" stroke-width="1.5"/><path d="M5 20c1.5-3 4-4.5 7-4.5s5.5 1.5 7 4.5" stroke="var(--gold)" stroke-width="1.5"/></svg></div>';
+  var pp=el.parentNode; if(pp) pp.innerHTML=fb;
 }
 function getFilteredHeroes(){
   var list=getHeroes();
-  /* 仅基础英雄：按英雄技能(hpId)分组，每组取基础皮肤代表，去除所有皮肤 */
-  var by={}, out=[];
+  /* 仅基础英雄：按英雄技能(hpId)分组，每组优先取基础(非皮肤)代表，彻底去除皮肤 */
+  var best={}, order=[];
   list.forEach(function(hh){
     var key=hh.hpId||hh.name;
-    if(!(key in by)){ by[key]=hh; out.push(hh); }
-    else if(heroIsBase(hh) && !heroIsBase(by[key])){ by[key]=hh; }
+    if(!(key in best)){ best[key]=hh; order.push(key); }
+    else if(heroIsBase(hh) && !heroIsBase(best[key])){ best[key]=hh; }
   });
+  var out=[];
+  order.forEach(function(k){ out.push(best[k]); });
   list=out;
   var q=(state.bg.heroSearch||'').toLowerCase();
   if(q) list=list.filter(function(hh){ return hh.name.toLowerCase().indexOf(q)>-1; });
@@ -895,12 +902,13 @@ function battlegroundsView(){
     h += '<div style="font-size:10px;color:var(--muted);margin-bottom:8px;">已去除皮肤，仅显示基础英雄初始皮肤</div>';
     h += '<div class="tavern-grid">';
     shown.forEach(function(hh){
+      var isSkin = hh.id && hh.id.indexOf('_SKIN')>-1;
       var art = hh.id
-        ? '<img src="https://art.hearthstonejson.com/v1/256x/'+esc(hh.id)+'.webp" loading="lazy" onerror="this.style.display=\'none\'" style="width:100%;height:100%;object-fit:cover;border-radius:10px;">'
+        ? '<img src="https://art.hearthstonejson.com/v1/256x/'+esc(hh.id)+'.webp" loading="lazy" onerror="heroArtFallback(this)" style="width:100%;height:100%;object-fit:cover;border-radius:10px;">'
         : '<svg width="26" height="26" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="9" r="4" stroke="var(--gold)" stroke-width="1.5"/><path d="M5 20c1.5-3 4-4.5 7-4.5s5.5 1.5 7 4.5" stroke="var(--gold)" stroke-width="1.5"/></svg>';
       h += '<div class="minion" onclick="pickHero(\''+esc(hh.name)+'\')">'+
         '<div class="art" style="display:flex;align-items:center;justify-content:center;overflow:hidden;">'+art+'</div>'+
-        '<div class="nm2" style="min-height:auto;">'+esc(hh.name)+'</div>'+
+        '<div class="nm2" style="min-height:auto;">'+esc(hh.name)+(isSkin?' <span class="pill gray" style="font-size:8px;padding:1px 4px;">无初始皮肤</span>':'')+'</div>'+
         '<div class="st">'+(hh.hp||30)+' 生命</div></div>';
     });
     h += '</div>';
