@@ -1612,12 +1612,12 @@ function showOCRResultSheet(dataURL, text, matched){
 /* iOS 全自动快捷指令：内嵌 JSON，用 data URI 强制下载（不依赖服务器 Content-Type） */
 var SHORTCUT_JSON = JSON.stringify({"WFWorkflowClientVersion":"700","WFWorkflowImportQuestions":[],"WFWorkflowActions":[{"WFWorkflowActionIdentifier":"is.workflow.actions.takescreenshot","WFWorkflowActionParameters":{}},{"WFWorkflowActionIdentifier":"is.workflow.actions.share","WFWorkflowActionParameters":{}}]});
 function downloadShortcut(){
+  var blob=new Blob([SHORTCUT_JSON],{type:'application/octet-stream'});
+  var url=URL.createObjectURL(blob);
   var a=document.createElement('a');
-  a.href='data:application/json;charset=utf-8,'+encodeURIComponent(SHORTCUT_JSON);
-  a.download='auto-shot.shortcut';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
+  a.href=url; a.download='auto-shot.shortcut';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(function(){ URL.revokeObjectURL(url); },2000);
 }
 /* iOS 全自动快捷指令导入引导 */
 function showShortcutGuide(){
@@ -1630,7 +1630,7 @@ function showShortcutGuide(){
       '<button class="btn blue" style="flex:1;" onclick="window.location.href=\'shortcuts://import-shortcut?url='+encodeURIComponent(sc)+'\'">一键导入</button>'+
       '<button class="btn gray" style="flex:1;" onclick="downloadShortcut()">下载文件</button>'+
     '</div>'+
-    '<div style="font-size:10px;color:var(--muted);margin-bottom:10px;line-height:1.5;">下载后请打开 iOS「文件」App →「下载」文件夹，找到 auto-shot.shortcut 并点击，即可自动导入快捷指令。若一键导入提示 URL 无效请用此方式。</div>'+
+    '<div style="font-size:10px;color:var(--muted);margin-bottom:10px;line-height:1.6;">下载后打开 iOS「文件」App →「下载」文件夹 → 找到 <b>auto-shot.shortcut</b> → <b>长按</b>该文件 →「共享」→ 选择「快捷指令」→「导入快捷指令」。（直接点击无反应时请用长按→共享方式）</div>'+
     '<div style="font-size:11px;line-height:1.7;color:var(--text);">'+
       '<b style="color:var(--gold2);">使用步骤：</b><br>'+
       '1. 点「一键导入」，在快捷指令 App 确认添加；<br>'+
