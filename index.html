@@ -22,19 +22,20 @@
   *{box-sizing:border-box;margin:0;padding:0;}
   html,body{background:#0A0D12;}
   body{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC","Helvetica Neue",sans-serif;color:var(--text);overflow-x:hidden;}
-  .stage{margin:16px auto;position:relative;}
+  .stage{margin:0 auto;position:relative;}
 
   .app{
-    height:100%;display:flex;flex-direction:column;
+    height:100vh;height:100dvh;max-width:470px;margin:0 auto;
+    display:flex;flex-direction:column;
     background:radial-gradient(120% 60% at 50% -10%, #1B2431 0%, var(--bg) 55%);
-    position:relative;overflow:visible;
+    position:relative;overflow:visible;box-shadow:0 0 0 1px var(--line);
   }
-  .app-scroll{flex:1;overflow-y:auto;overflow-x:hidden;padding:14px 14px 76px;}
+  .app-scroll{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding:14px 14px 76px;-webkit-overflow-scrolling:touch;}
   .app-scroll::-webkit-scrollbar{width:0;}
 
   .app-header{
     display:flex;align-items:center;justify-content:space-between;
-    padding:14px 16px 10px;border-bottom:1px solid var(--line);
+    padding:calc(14px + env(safe-area-inset-top)) 16px 10px;border-bottom:1px solid var(--line);
   }
   .app-header .brand{display:flex;align-items:center;gap:9px;}
   .brand .logo{
@@ -206,7 +207,6 @@
 <body>
 
 <div class="stage" id="stage">
-  <ios-device width="402" height="874" dark>
     <div class="app">
       <div class="app-header">
         <div class="brand">
@@ -244,10 +244,8 @@
       </div>
       <div class="toast" id="toastBox"></div>
     </div>
-  </ios-device>
 </div>
 
-<script src="https://sf3-scmcdn-cn.feishucdn.com/obj/feishu-static/miaoda/coding-unpkg-sdk/@lark-apaas/coding-registry-buildless@0.1.22/scripts/ios-frame.js"></script>
 <script>
 /* ============================================================
    数据与状态
@@ -1550,15 +1548,14 @@ if('serviceWorker' in navigator){
   });
 }
 
-/* 设备框适配窄屏 */
+/* 自适应：真机全屏，桌面限宽居中（不再用 transform 缩放，避免 fixed/sticky 失效与触摸滚动异常） */
 function fit(){
   var stage=document.getElementById('stage');
-  var avail=Math.min(window.innerWidth-16,470);
-  var scale=Math.min(1,avail/402);
-  stage.style.width=(402*scale)+'px';
-  stage.style.height=(874*scale)+'px';
-  stage.style.transform='scale('+scale+')';
-  stage.style.transformOrigin='top center';
+  if(!stage) return;
+  stage.style.width='100%';
+  stage.style.height='100dvh';
+  stage.style.transform='none';
+  stage.style.transformOrigin='';
 }
 window.addEventListener('resize',fit);
 fit();
