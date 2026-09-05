@@ -188,6 +188,18 @@
   .seg button{flex:1;background:none;border:none;color:var(--muted);font-size:12px;padding:9px 0;cursor:pointer;border-right:1px solid var(--line);}
   .seg button:last-child{border-right:none;}
   .seg button.on{background:rgba(217,179,108,.16);color:var(--gold2);font-weight:700;}
+  .toast{
+    position:absolute;left:50%;top:14px;transform:translate(-50%,-8px);
+    background:rgba(20,26,36,.96);border:1px solid var(--gold);color:var(--gold2);
+    padding:10px 16px;border-radius:12px;font-size:12px;font-weight:600;z-index:30;
+    box-shadow:0 6px 20px rgba(0,0,0,.4);opacity:0;transition:all .25s;white-space:nowrap;
+    pointer-events:none;
+  }
+  .curve-wrap{display:flex;gap:4px;align-items:flex-end;}
+  .curve-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;min-width:0;}
+  .curve-bar-area{width:100%;display:flex;align-items:flex-end;justify-content:center;height:44px;}
+  .curve-bar{width:12px;background:linear-gradient(180deg,var(--gold2),#A87E3A);border-radius:3px 3px 0 0;}
+  .curve-num{font-size:9px;color:var(--muted);}
 </style>
 </head>
 <body>
@@ -229,6 +241,7 @@
       <div class="modal-mask" id="modalMask">
         <div class="sheet" id="sheet"></div>
       </div>
+      <div class="toast" id="toastBox"></div>
     </div>
   </ios-device>
 </div>
@@ -244,6 +257,15 @@ var cardPool = [
   {name:'冰霜新星',cost:3,tribe:'',total:2},{name:'烈焰风暴',cost:7,tribe:'',total:2},
   {name:'咒术师的召唤',cost:3,tribe:'',total:2},{name:'鱼人猎潮者',cost:1,tribe:'鱼人',total:2},
   {name:'苦痛侍僧',cost:3,tribe:'',total:2},{name:'石牙野猪',cost:1,tribe:'野兽',total:2}
+];
+
+/* 当前卡组（盒子风格显示用，可"使用此卡组"带入追踪） */
+var demoDeck = [
+  {name:'法力浮龙',cost:1,count:2},{name:'石牙野猪',cost:1,count:1},
+  {name:'寒冰箭',cost:2,count:2},{name:'鱼人猎潮者',cost:1,count:1},
+  {name:'奥术智慧',cost:3,count:2},{name:'冰霜新星',cost:3,count:2},
+  {name:'咒术师的召唤',cost:3,count:2},{name:'苦痛侍僧',cost:3,count:1},
+  {name:'火球术',cost:4,count:2},{name:'烈焰风暴',cost:7,count:2}
 ];
 
 var bgPool = [
@@ -586,22 +608,34 @@ function endTurn(){
    卡组
    ============================================================ */
 function decksView(){
-  var deckCards = [
-    {name:'寒冰箭',cost:2,count:2},{name:'火球术',cost:4,count:2},{name:'奥术智慧',cost:3,count:2},
-    {name:'法力浮龙',cost:1,count:2},{name:'冰霜新星',cost:3,count:2},{name:'烈焰风暴',cost:7,count:2},
-    {name:'咒术师的召唤',cost:3,count:2},{name:'苦痛侍僧',cost:3,count:1},{name:'石牙野猪',cost:1,count:1},
-    {name:'鱼人猎潮者',cost:1,count:1}
-  ];
+  var deckCards = demoDeck;
   var total = deckCards.reduce(function(s,c){return s+c.count;},0);
+  var sorted = deckCards.slice().sort(function(a,b){ return (a.cost-b.cost)||(a.name<b.name?-1:1); });
+  /* 法力曲线 */
+  var curve={}, maxc=0, cst;
+  sorted.forEach(function(c){ curve[c.cost]=(curve[c.cost]||0)+c.count; if(curve[c.cost]>maxc)maxc=curve[c.cost]; });
+  var curveHTML='';
+  for(cst=0;cst<=10;cst++){
+    var n=curve[cst]||0;
+    curveHTML+='<div class="curve-col"><div class="curve-bar-area">'+
+      '<div class="curve-bar" style="height:'+(maxc?Math.max(3,Math.round(n/maxc*40)):3)+'px;"></div></div>'+
+      '<span class="curve-num">'+cst+'</span></div>';
+  }
   var h='';
   h += '<div class="deck-hero">';
   h += '<div class="ava"><svg viewBox="0 0 24 24" width="26" height="26" fill="none"><path d="M12 2 21 7v10l-9 5-9-5V7l9-5Z" stroke="currentColor" stroke-width="1.5"/><path d="M12 7l4.5 2.5v5L12 17l-4.5-2.5v-5L12 7Z" stroke="currentColor" stroke-width="1.2"/></svg></div>';
-  h += '<div style="flex:1"><div style="font-size:15px;font-weight:700;">奥秘法</div><div style="font-size:11px;color:var(--muted);margin-top:2px;">法师 · 标准 · 共 '+total+' 张</div></div>';
+  h += '<div style="flex:1;min-width:0;"><div style="font-size:15px;font-weight:700;">奥秘法</div><div style="font-size:11px;color:var(--muted);margin-top:2px;">法师 · 标准 · '+total+' 张</div></div>';
+  h += '<button class="btn primary" style="padding:7px 12px;font-size:11px;" onclick="useDeck()">使用此卡组</button>';
   h += '</div>';
-  h += '<div class="panel"><div class="panel-title"><span class="dot" style="background:var(--gold)"></span>卡牌列表</div>';
-  deckCards.forEach(function(c){
+
+  h += '<div class="panel"><div class="panel-title"><span class="dot" style="background:var(--blue)"></span>法力曲线</div>';
+  h += '<div class="curve-wrap">'+curveHTML+'</div></div>';
+
+  h += '<div class="panel"><div class="panel-title"><span class="dot" style="background:var(--gold)"></span>卡牌列表';
+  h += '<span style="margin-left:auto;font-size:10px;color:var(--muted);">'+total+' 张 · '+deckCards.length+' 种</span></div>';
+  sorted.forEach(function(c){
     h += '<div class="card-row">'+manaGem(c.cost)+
-      '<div class="info"><div class="nm">'+esc(c.name)+'</div></div>'+
+      '<div class="info"><div class="nm">'+esc(c.name)+'</div><div class="sub">'+c.cost+' 费</div></div>'+
       '<span class="pill">×'+c.count+'</span></div>';
   });
   h += '</div>';
@@ -950,6 +984,46 @@ document.getElementById('modalMask').addEventListener('click',function(e){
 function closeModal(){ document.getElementById('modalMask').classList.remove('show'); }
 
 /* 快捷指令联动：同步游戏开始（iOS 无法读炉石游戏数据，改为信号桥接） */
+/* ============================================================
+   快捷指令联动：识别到游戏开始 → 自动进入记牌界面（像炉石盒子）
+   ============================================================ */
+function showToast(msg){
+  var t=document.getElementById('toastBox'); if(!t)return;
+  t.innerHTML=msg; t.style.opacity=1; t.style.transform='translate(-50%,0)';
+  clearTimeout(t._h); t._h=setTimeout(function(){ t.style.opacity=0; },3200);
+}
+function showAutoStartBanner(isBG){
+  showToast(isBG?'已检测到游戏开始，已进入酒馆战棋记牌':'已检测到游戏开始，已自动开始对局');
+}
+function parseStartParams(){
+  try{
+    var qs=new URLSearchParams(location.search);
+    if(qs.get('hs')==='start'){
+      var mode=qs.get('mode')||qs.get('m');
+      var cls=qs.get('cls');
+      if(mode==='bg'||mode==='battlegrounds'){
+        state.bg.hero=null; state.bg.tavern=[]; state.bg.owned=[]; state.bg.tribes={};
+        state.bg.turn=1; state.bg.gold=3; state.bg.tier=1; state.bg.hp=40;
+        state.tab='battlegrounds';
+      }else{
+        if(cls && classes.indexOf(cls)>-1) state.setup.myClass=cls;
+        startMatch();
+        state.tab='constructed';
+      }
+      showAutoStartBanner(mode==='bg'||mode==='battlegrounds');
+      history.replaceState(null,'',location.pathname);
+    }
+  }catch(e){}
+}
+/* 使用当前卡组进入追踪 */
+function useDeck(){
+  cardPool = demoDeck.map(function(c){ return {name:c.name,cost:c.cost,tribe:'',total:c.count}; });
+  startMatch();
+  state.tab='constructed';
+  render();
+  showToast('已载入卡组「奥秘法」并开始对局');
+}
+
 var newMatchPrompted=false;
 function doStartNewMatch(from){
   state.tab='constructed';        /* 切到对局页并开始新局 */
@@ -1003,6 +1077,7 @@ document.addEventListener('visibilitychange', function(){
 load();
 loadCardDB(); /* 启动时后台自动连接/更新传统卡牌数据 */
 loadBGDB();   /* 启动时后台自动连接/更新酒馆战棋数据 */
+parseStartParams(); /* 识别快捷指令的"游戏开始"信号 */
 render();
 signalFromURL(); /* 快捷指令带参打开时自动开始新对局 */
 
