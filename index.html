@@ -683,7 +683,7 @@ function bgBoardImportView(){
     h += '<button class="btn gray" onclick="b.importShot=null;b.importHeroes=[];b.importMyHero=\'\';b.importOppHeroes=[];render()">重新导入</button>';
     h += '</div>';
   } else {
-    h += '<button class="btn blue block" onclick="pickImage(function(d){compressImage(d,1280,0.72,function(dd){state.bg.importShot=dd;save();render();});})">导入棋盘截图</button>';
+    h += '<button class="btn blue block" onclick="pickImage(function(d){autoImportShot(d);})">导入棋盘截图</button>';
     h += '<div style="font-size:10px;color:var(--muted);margin-top:8px;">建议截取包含我方英雄头像和对手英雄的完整棋盘画面。iOS 快捷指令截图后「分享」到本应用也可自动上传。</div>';
   }
   h += '</div>';
@@ -1503,8 +1503,75 @@ function pickImage(cb){
   inp.onchange=function(){ readImgFile(inp, function(d){ compressImage(d,1280,0.72,cb); }); };
   inp.click();
 }
-function bgImportBoard(){ pickImage(function(d){ state.bg.boardShot=d; save(); render(); }); }
-function bgImportOppShot(){ pickImage(function(d){ var b=state.bg; while(b.opponents.length<6) b.opponents.push({name:'',tribes:[],shot:null,defeated:false,turn:0,minions:[]}); b.opponents[b.oppIdx].shot=d; save(); render(); }); }
+function bgImportBoard(){ pickImage(function(d){ autoImportShot(d,'my'); }); }
+function bgImportOppShot(){ pickImage(function(d){ autoImportShot(d,'opp'); }); }
+/* 统一自动导入：快捷指令/手动导入均走此入口，直接导入当前界面并自动OCR识别 */
+function autoImportShot(dataURL, hint){
+  compressImage(dataURL,1280,0.72,function(d){
+    var b=state.bg;
+    /* 棋盘导入设置界面：保存截图并自动识别英雄 */
+    if(state.setupPhase==='bg'){
+      b.importShot=d; save(); render();
+      if(!window.Tesseract){
+        toast('正在加载识别引擎…');
+        var sc=document.createElement('script');
+        sc.src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+        sc.onload=function(){ doHeroOCR(d); };
+        sc.onerror=function(){ toast('识别引擎加载失败，可手动点选英雄'); };
+        document.head.appendChild(sc);
+      } else { doHeroOCR(d); }
+      return;
+    }
+    /* 酒馆记牌界面：保存截图并自动识别随从 */
+    if(state.inMatch && state.matchMode==='battlegrounds'){
+      var side=hint==='opp'?'opp':'my';
+      if(side==='my'){
+        b.boardShot=d;
+      }else{
+        while(b.opponents.length<6) b.opponents.push({name:'',tribes:[],shot:null,defeated:false,turn:0,minions:[]});
+        var cur=b.opponents[b.oppIdx]; cur.shot=d; cur.turn=b.turn;
+      }
+      save(); render();
+      if(!window.Tesseract){
+        toast('正在加载识别引擎…');
+        var sc2=document.createElement('script');
+        sc2.src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+        sc2.onload=function(){ autoOCRMinions(d,side); };
+        sc2.onerror=function(){ toast('识别引擎加载失败，可手动点选随从'); };
+        document.head.appendChild(sc2);
+      } else { autoOCRMinions(d,side); }
+      return;
+    }
+    toast('请先进入酒馆战棋记牌界面再导入截图');
+  });
+}
+/* OCR自动识别随从并添加到我方/对手阵容 */
+function autoOCRMinions(dataURL, side){
+  toast('正在识别截图中的随从阵容…');
+  Tesseract.recognize(dataURL,'chi_sim').then(function(res){
+    var text=(res&&res.data&&res.data.text)||'';
+    var matched=matchMinionsFromText(text);
+    var b=state.bg;
+    if(side==='my'){
+      matched.forEach(function(mm){
+        b.owned.push({name:mm.name,cost:mm.cost,tribe:mm.tribe||'',tier:mm.tier||1,a:mm.a||1,h:mm.h||1,sold:false,tripled:false});
+        if(mm.tribe) b.tribes[mm.tribe]=true;
+      });
+    }else{
+      while(b.opponents.length<6) b.opponents.push({name:'',tribes:[],shot:null,defeated:false,turn:0,minions:[]});
+      var cur=b.opponents[b.oppIdx]; cur.minions=cur.minions||[];
+      matched.forEach(function(mm){
+        cur.minions.push({name:mm.name,cost:mm.cost,tribe:mm.tribe||'',tier:mm.tier||1,a:mm.a||1,h:mm.h||1});
+        if(mm.tribe && cur.tribes.indexOf(mm.tribe)<0) cur.tribes.push(mm.tribe);
+      });
+      /* 识别到英雄名时自动设为对手名称 */
+      var heroes=matchHeroesFromText(text);
+      if(heroes.length>0 && !cur.name) cur.name=heroes[0].name;
+    }
+    save(); render();
+    toast('识别到 '+matched.length+' 个随从，已自动添加到'+(side==='my'?'我方阵容':'对手阵容'));
+  }).catch(function(){ toast('识别失败，可手动点选随从'); });
+}
 function addOwnedMinion(name){
   var b=state.bg;
   var pool=(bgDB.loaded&&bgDB.minions.length)?bgDB.minions:bgPool;
@@ -1856,7 +1923,7 @@ function receiveSharedShot(){
     .then(function(blob){
       if(!blob || blob.size===0){ toast('分享截图为空，请重新截图分享'); return; }
       var fr=new FileReader();
-      fr.onload=function(){ pendingShot=fr.result; toast('正在自动识别截图中的随从阵容…'); analyzeAndSaveShot(); };
+      fr.onload=function(){ toast('已收到快捷指令截图，正在自动导入当前界面…'); autoImportShot(fr.result); };
       fr.onerror=function(){ toast('截图读取失败，请重试'); };
       fr.readAsDataURL(blob);
     }).catch(function(){ toast('未收到分享截图，请确认已安装到主屏幕'); });
