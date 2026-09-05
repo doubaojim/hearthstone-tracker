@@ -655,19 +655,75 @@ function renderCardList(){
 }
 
 /* ============================================================
+   酒馆战棋数据库（HearthstoneJSON 同源，与炉石盒子/HDT 一致，每日自动更新）
+   ============================================================ */
+var BG_URL='battlegrounds.json';
+var bgDB={loaded:false,minions:[],heroes:[],lastUpdated:null};
+function applyBGDB(data){
+  bgDB.minions = Array.isArray(data.minions)?data.minions:[];
+  bgDB.heroes  = Array.isArray(data.heroes)?data.heroes:[];
+  bgDB.loaded  = true;
+}
+function fetchFreshBGDB(){
+  return fetch(BG_URL).then(function(r){ if(!r.ok) throw 0; return r.json(); })
+    .then(function(data){
+      applyBGDB(data);
+      bgDB.lastUpdated=Date.now();
+      try{ localStorage.setItem('hs_bg', JSON.stringify({ts:Date.now(),data:data})); }catch(e){}
+      render(); return true;
+    })
+    .catch(function(){ return false; });
+}
+function loadBGDB(){
+  if(bgDB.loaded) return Promise.resolve(true);
+  var cached=null;
+  try{ var c=localStorage.getItem('hs_bg'); if(c){ cached=JSON.parse(c); } }catch(e){}
+  if(cached && cached.data){
+    applyBGDB(cached.data);
+    bgDB.lastUpdated=cached.ts||0;
+    var age=Date.now()-(cached.ts||0);
+    render();
+    if(age < DAY) return Promise.resolve(true);
+    fetchFreshBGDB();
+    return Promise.resolve(true);
+  }
+  return fetchFreshBGDB();
+}
+function connectBGDB(){
+  var btn=document.getElementById('bgConnectBtn');
+  var st=document.getElementById('bgConnectStatus');
+  if(btn) btn.disabled=true;
+  if(st) st.innerHTML='<div style="font-size:11px;color:var(--muted);margin-top:8px;">正在加载真实酒馆战棋数据…</div>';
+  loadBGDB().then(function(ok){
+    if(st) st.innerHTML = ok
+      ? '<div style="font-size:11px;color:var(--green);margin-top:8px;">✓ 酒馆战棋数据库已连接（'+bgDB.minions.length+' 随从 / '+bgDB.heroes.length+' 英雄）</div>'
+      : '<div style="font-size:11px;color:var(--red);margin-top:8px;">加载失败，请检查网络后重试。</div>';
+    render();
+  });
+}
+function getHeroes(){ return bgDB.loaded?bgDB.heroes:heroes; }
+function findHero(name){
+  var list=getHeroes();
+  for(var i=0;i<list.length;i++){ if(list[i].name===name) return list[i]; }
+  return null;
+}
+
+/* ============================================================
    酒馆战棋
    ============================================================ */
 function battlegroundsView(){
   var b = state.bg;
   var h='';
   if(!b.hero){
-    h += '<div class="panel-title"><span class="dot" style="background:var(--gold)"></span>选择英雄</div>';
+    h += '<div class="panel-title"><span class="dot" style="background:var(--gold)"></span>选择英雄';
+    h += '<span style="margin-left:auto;font-size:10px;color:var(--muted);">'+(bgDB.loaded?('官方库 '+bgDB.heroes.length+' 个'):'演示列表')+'</span>';
+    h += '</div>';
     h += '<div class="tavern-grid">';
-    heroes.forEach(function(hh){
+    getHeroes().forEach(function(hh){
       h += '<div class="minion" onclick="pickHero(\''+esc(hh.name)+'\')">'+
         '<div class="art" style="display:flex;align-items:center;justify-content:center;"><svg width="26" height="26" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="9" r="4" stroke="var(--gold)" stroke-width="1.5"/><path d="M5 20c1.5-3 4-4.5 7-4.5s5.5 1.5 7 4.5" stroke="var(--gold)" stroke-width="1.5"/></svg></div>'+
         '<div class="nm2" style="min-height:auto;">'+esc(hh.name)+'</div>'+
-        '<div class="st">'+hh.hp+' 生命 · '+esc(hh.power)+'</div></div>';
+        '<div class="st">'+(hh.hp||30)+' 生命'+(hh.power?(' · '+esc(hh.power)):'')+'</div></div>';
     });
     h += '</div>';
     return h;
@@ -748,17 +804,24 @@ function minionCard(mm,onclick,cls){
     '<div class="st">'+(mm.sold?'已出售':(mm.tripled?'已三连':'点按购买/出售'))+'</div></div>';
 }
 function pickHero(name){
-  var hh = heroes.find(function(x){return x.name===name;});
+  var hh = findHero(name);
   state.bg.hero=hh; state.bg.tavern=[]; refreshTavern(); render();
 }
 function setTier(t){ state.bg.tier=t; render(); }
 function refreshTavern(){
   var b=state.bg;
   b.refreshes++;
-  var pool = bgPool.filter(function(x){return x.tier<=b.tier;});
+  var pool;
+  if(bgDB.loaded && bgDB.minions.length){
+    pool = bgDB.minions.filter(function(x){return x.tier<=b.tier;});
+  }else{
+    pool = bgPool.filter(function(x){return x.tier<=b.tier;});
+  }
   pool = pool.slice().sort(function(){return Math.random()-0.5;});
   var count = Math.min(3+Math.floor(b.tier/2),pool.length);
-  b.tavern = pool.slice(0,count).map(function(x){return {name:x.name,cost:x.cost,tribe:x.tribe,tier:x.tier,a:x.a,h:x.h};});
+  b.tavern = pool.slice(0,count).map(function(x){
+    return {name:x.name,cost:x.tier,tribe:bgDB.loaded?(x.tribe||''):x.tribe,tier:x.tier,a:x.a,h:x.h};
+  });
   render();
 }
 function buyMinion(i){
@@ -829,6 +892,21 @@ function settingsView(){
   }
   h += '</div>';
 
+  h += '<div class="panel"><div class="panel-title"><span class="dot" style="background:var(--blue)"></span>酒馆战棋数据</div>';
+  if(bgDB.loaded){
+    h += '<div class="kv"><span class="k">数据源</span><span class="v">HearthstoneJSON</span></div>';
+    h += '<div class="kv"><span class="k">战棋随从</span><span class="v">'+bgDB.minions.length+' 张</span></div>';
+    h += '<div class="kv"><span class="k">战棋英雄</span><span class="v">'+bgDB.heroes.length+' 个</span></div>';
+    h += '<div class="kv"><span class="k">数据更新</span><span class="v">'+fmtDate(bgDB.lastUpdated)+'</span></div>';
+    h += '<div class="kv"><span class="k">状态</span><span class="v" style="color:var(--green)">已连接 · 每日自动更新</span></div>';
+    h += '<div style="font-size:10px;color:var(--muted);margin-top:8px;">酒馆页随从、英雄均取自官方战棋数据库，与炉石盒子/HDT 同源，每日自动同步。</div>';
+  }else{
+    h += '<div style="font-size:11px;color:var(--muted);margin-bottom:8px;">连接官方 HearthstoneJSON 酒馆战棋数据库（与炉石盒子/HDT 同源），酒馆页将显示真实战棋随从（按酒馆等级）与英雄，每日自动更新。</div>';
+    h += '<button class="btn blue block" onclick="connectBGDB()" id="bgConnectBtn">连接酒馆战棋数据</button>';
+    h += '<div id="bgConnectStatus"></div>';
+  }
+  h += '</div>';
+
   h += '<div class="panel"><div class="panel-title"><span class="dot" style="background:var(--gold)"></span>安装到主屏幕</div>';
   h += '<div class="note">本应用已支持「添加到主屏幕」，安装后全屏启动、离线可用，体验接近原生 App：<br>1. 在 Safari 中打开本页；<br>2. 点底部「分享」按钮；<br>3. 选择「添加到主屏幕」；<br>4. 在主屏幕点击图标启动。</div>';
   h += '</div>';
@@ -889,7 +967,8 @@ document.addEventListener('visibilitychange', function(){
 });
 
 load();
-loadCardDB(); /* 启动时后台自动连接/更新真实卡牌数据 */
+loadCardDB(); /* 启动时后台自动连接/更新传统卡牌数据 */
+loadBGDB();   /* 启动时后台自动连接/更新酒馆战棋数据 */
 render();
 
 /* Service Worker 注册（不支持时静默降级） */
