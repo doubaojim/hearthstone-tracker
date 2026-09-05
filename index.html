@@ -314,7 +314,7 @@ var state = {
    持久化
    ============================================================ */
 function save(){
-  try{ localStorage.setItem('hs_tracker', JSON.stringify({ history:state.history, setup:state.setup, decks:state.decks, currentDeckId:state.currentDeckId })); }catch(e){}
+  try{ localStorage.setItem('hs_tracker', JSON.stringify({ history:state.history, setup:state.setup, decks:state.decks, currentDeckId:state.currentDeckId, bg:state.bg })); }catch(e){}
 }
 function load(){
   try{
@@ -323,6 +323,7 @@ function load(){
     if(d.setup) state.setup = d.setup;
     if(Array.isArray(d.decks)) state.decks = d.decks;
     if(d.currentDeckId!=null) state.currentDeckId = d.currentDeckId;
+    if(d.bg) state.bg = Object.assign(state.bg, d.bg);
   }catch(e){}
 }
 function record(mode, label, result, turns){
@@ -1222,13 +1223,29 @@ function readImgFile(target, cb){
   r.onload=function(){ cb(r.result); };
   r.readAsDataURL(f);
 }
+/* 图片压缩：限制最大宽度+JPEG质量，避免大截图撑爆 localStorage */
+function compressImage(dataURL, maxW, quality, cb){
+  var img=new Image();
+  img.onload=function(){
+    try{
+      var w=img.width, h=img.height;
+      if(w>maxW){ h=Math.round(h*maxW/w); w=maxW; }
+      var canvas=document.createElement('canvas');
+      canvas.width=w; canvas.height=h;
+      canvas.getContext('2d').drawImage(img,0,0,w,h);
+      cb(canvas.toDataURL('image/jpeg', quality||0.72));
+    }catch(e){ cb(dataURL); }
+  };
+  img.onerror=function(){ cb(dataURL); };
+  img.src=dataURL;
+}
 function pickImage(cb){
   var inp=document.createElement('input'); inp.type='file'; inp.accept='image/*';
-  inp.onchange=function(){ readImgFile(inp, cb); };
+  inp.onchange=function(){ readImgFile(inp, function(d){ compressImage(d,1280,0.72,cb); }); };
   inp.click();
 }
-function bgImportBoard(){ pickImage(function(d){ state.bg.boardShot=d; render(); }); }
-function bgImportOppShot(){ pickImage(function(d){ var b=state.bg; while(b.opponents.length<6) b.opponents.push({name:'',tribes:[],shot:null,defeated:false,turn:0}); b.opponents[b.oppIdx].shot=d; render(); }); }
+function bgImportBoard(){ pickImage(function(d){ state.bg.boardShot=d; save(); render(); }); }
+function bgImportOppShot(){ pickImage(function(d){ var b=state.bg; while(b.opponents.length<6) b.opponents.push({name:'',tribes:[],shot:null,defeated:false,turn:0,minions:[]}); b.opponents[b.oppIdx].shot=d; save(); render(); }); }
 function addOwnedMinion(name){
   var b=state.bg;
   var pool=(bgDB.loaded&&bgDB.minions.length)?bgDB.minions:bgPool;
@@ -1539,28 +1556,31 @@ function showShotImportSheet(dataURL){
 }
 function saveShotTo(side, useOCR){
   if(!pendingShot) return;
-  var b=state.bg;
-  if(side==='my'){
-    b.boardShot=pendingShot;
-    if(useOCR && pendingOCRMinions.length){
-      pendingOCRMinions.forEach(function(mm){
-        b.owned.push({name:mm.name,cost:mm.cost,tribe:mm.tribe||'',tier:mm.tier||1,a:mm.a||1,h:mm.h||1,sold:false,tripled:false});
-        if(mm.tribe) b.tribes[mm.tribe]=true;
-      });
+  var shot=pendingShot; pendingShot=null;
+  compressImage(shot,1280,0.72,function(d){
+    var b=state.bg;
+    if(side==='my'){
+      b.boardShot=d;
+      if(useOCR && pendingOCRMinions.length){
+        pendingOCRMinions.forEach(function(mm){
+          b.owned.push({name:mm.name,cost:mm.cost,tribe:mm.tribe||'',tier:mm.tier||1,a:mm.a||1,h:mm.h||1,sold:false,tripled:false});
+          if(mm.tribe) b.tribes[mm.tribe]=true;
+        });
+      }
+    } else {
+      while(b.opponents.length<6) b.opponents.push({name:'',tribes:[],shot:null,defeated:false,turn:0,minions:[]});
+      var cur=b.opponents[b.oppIdx]; cur.shot=d; cur.turn=b.turn;
+      if(useOCR && pendingOCRMinions.length){
+        cur.minions=cur.minions||[];
+        pendingOCRMinions.forEach(function(mm){
+          cur.minions.push({name:mm.name,cost:mm.cost,tribe:mm.tribe||'',tier:mm.tier||1,a:mm.a||1,h:mm.h||1});
+          if(mm.tribe && cur.tribes.indexOf(mm.tribe)<0) cur.tribes.push(mm.tribe);
+        });
+      }
     }
-  } else {
-    while(b.opponents.length<6) b.opponents.push({name:'',tribes:[],shot:null,defeated:false,turn:0,minions:[]});
-    var cur=b.opponents[b.oppIdx]; cur.shot=pendingShot; cur.turn=b.turn;
-    if(useOCR && pendingOCRMinions.length){
-      cur.minions=cur.minions||[];
-      pendingOCRMinions.forEach(function(mm){
-        cur.minions.push({name:mm.name,cost:mm.cost,tribe:mm.tribe||'',tier:mm.tier||1,a:mm.a||1,h:mm.h||1});
-        if(mm.tribe && cur.tribes.indexOf(mm.tribe)<0) cur.tribes.push(mm.tribe);
-      });
-    }
-  }
-  pendingShot=null; pendingOCRMinions=[]; closeModal(); save(); render();
-  toast('已保存到'+(side==='my'?'我方阵容':'对手阵容')+(useOCR&&pendingOCRMinions?'（含识别随从）':''));
+    pendingOCRMinions=[]; closeModal(); save(); render();
+    toast('已保存到'+(side==='my'?'我方阵容':'对手阵容'));
+  });
 }
 function analyzeAndSaveShot(){
   if(!pendingShot) return;
