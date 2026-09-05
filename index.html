@@ -1537,7 +1537,7 @@ function receiveSharedShot(){
     .then(function(blob){
       if(!blob || blob.size===0){ toast('分享截图为空，请重新截图分享'); return; }
       var fr=new FileReader();
-      fr.onload=function(){ showShotImportSheet(fr.result); };
+      fr.onload=function(){ pendingShot=fr.result; toast('正在自动识别截图中的随从阵容…'); analyzeAndSaveShot(); };
       fr.onerror=function(){ toast('截图读取失败，请重试'); };
       fr.readAsDataURL(blob);
     }).catch(function(){ toast('未收到分享截图，请确认已安装到主屏幕'); });
@@ -1603,7 +1603,7 @@ function runOCR(dataURL){
     var matched=matchMinionsFromText(text);
     pendingOCRMinions=matched;
     showOCRResultSheet(dataURL, text, matched);
-  }).catch(function(){ toast('识别失败，请保存截图后手动点选'); });
+  }).catch(function(){ toast('识别失败，可手动选择保存位置'); if(pendingShot) showShotImportSheet(pendingShot); });
 }
 function matchMinionsFromText(text){
   var pool=(bgDB.loaded&&bgDB.minions.length)?bgDB.minions:bgPool;
@@ -1622,13 +1622,15 @@ function showOCRResultSheet(dataURL, text, matched){
   var list=matched.length? matched.map(function(mm){
     return '<div style="font-size:11px;padding:3px 0;color:var(--text);">· '+esc(mm.name)+' <span style="color:var(--muted);">('+(mm.cost!=null?mm.cost:'?')+'星 · '+esc(mm.tribe||'无')+')</span></div>';
   }).join('') : '<div style="font-size:11px;color:var(--muted);">未识别到随从名称（炉石艺术字体识别率有限），可保存截图后手动点选。</div>';
-  s.innerHTML='<div style="font-size:14px;font-weight:600;margin-bottom:6px;">识别结果（'+matched.length+' 个随从）</div>'+
-    '<div style="max-height:28vh;overflow-y:auto;margin-bottom:10px;">'+list+'</div>'+
+  s.innerHTML='<div style="font-size:14px;font-weight:600;margin-bottom:6px;">自动识别结果（'+matched.length+' 个随从）</div>'+
+    '<img src="'+dataURL+'" onclick="openImage(this.src)" style="width:100%;border-radius:10px;margin-bottom:8px;max-height:28vh;object-fit:contain;background:#000;display:block;cursor:zoom-in;">'+
+    '<div style="max-height:22vh;overflow-y:auto;margin-bottom:10px;">'+list+'</div>'+
+    '<div style="font-size:10px;color:var(--muted);margin-bottom:8px;">识别结果可编辑，保存后在阵容中可手动增删随从。</div>'+
     '<div class="settle-row" style="margin-bottom:8px;">'+
-      '<button class="btn blue" style="flex:1;" onclick="saveShotTo(\'my\',true)">保存到我方</button>'+
-      '<button class="btn blue" style="flex:1;" onclick="saveShotTo(\'opp\',true)">保存到对手</button>'+
+      '<button class="btn blue" style="flex:1;" onclick="saveShotTo(\'my\',true)">保存到我方阵容</button>'+
+      '<button class="btn blue" style="flex:1;" onclick="saveShotTo(\'opp\',true)">保存到对手阵容</button>'+
     '</div>'+
-    '<button class="btn gray block" onclick="showShotImportSheet(pendingShot)">返回</button>'+
+    '<button class="btn gray block" onclick="showShotImportSheet(pendingShot)">仅保存截图（不识别随从）</button>'+
     '<button class="btn gray block" style="margin-top:8px;" onclick="closeModal()">取消</button>';
   m.classList.add('show');
 }
