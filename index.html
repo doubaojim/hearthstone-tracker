@@ -1064,6 +1064,7 @@ function battlegroundsView(){
   }
   h += '<button class="btn gray block" onclick="bgImportBoard()">导入棋盘截图</button>';
   h += '<div style="font-size:10px;color:var(--muted);margin:6px 0 2px;">提示：iOS 快捷指令截图后「分享」到本应用，可自动上传并智能识别随从阵容。</div>';
+  h += '<button class="btn gray block" style="margin-top:6px;" onclick="showShortcutGuide()">导入 iOS 全自动快捷指令</button>';
   if(b.owned.length===0){
     h += '<div style="font-size:11px;color:var(--muted);margin:8px 0;">还没有记录随从。导入截图后可对照截图，从下方点选随从添加。</div>';
   }else{
@@ -1606,6 +1607,32 @@ function showOCRResultSheet(dataURL, text, matched){
     '</div>'+
     '<button class="btn gray block" onclick="showShotImportSheet(pendingShot)">返回</button>'+
     '<button class="btn gray block" style="margin-top:8px;" onclick="closeModal()">取消</button>';
+  m.classList.add('show');
+}
+/* iOS 全自动快捷指令导入引导 */
+function showShortcutGuide(){
+  var m=document.getElementById('modalMask'), s=document.getElementById('sheet');
+  var base='https://doubaojim.github.io/hearthstone-tracker/';
+  var sc=base+'auto-shot.shortcut';
+  s.innerHTML='<div style="font-size:14px;font-weight:600;margin-bottom:8px;">iOS 全自动快捷指令</div>'+
+    '<div style="font-size:11px;color:var(--muted);margin-bottom:10px;line-height:1.5;">一键导入后，可设为「打开炉石传说时自动运行」，自动截图并分享到本应用分析随从阵容。</div>'+
+    '<div class="settle-row" style="margin-bottom:10px;">'+
+      '<button class="btn blue" style="flex:1;" onclick="window.location.href=\'shortcuts://import-shortcut?url='+encodeURIComponent(sc)+'\'">一键导入</button>'+
+      '<button class="btn gray" style="flex:1;" onclick="window.open(\''+sc+'\')">下载文件</button>'+
+    '</div>'+
+    '<div style="font-size:11px;line-height:1.7;color:var(--text);">'+
+      '<b style="color:var(--gold2);">使用步骤：</b><br>'+
+      '1. 点「一键导入」，在快捷指令 App 确认添加；<br>'+
+      '2. 打开「快捷指令」→「自动化」→「创建个人自动化」；<br>'+
+      '3. 触发选「App」→ 选「炉石传说」→ 勾选「打开」；<br>'+
+      '4. 添加动作「运行快捷指令」→ 选「炉石记牌器-自动截图上传」；<br>'+
+      '5. 关闭「运行前询问」，点完成。此后打开炉石即自动截图上传。'+
+    '</div>'+
+    '<div style="font-size:10px;color:var(--muted);margin-top:10px;line-height:1.6;">'+
+      '注：分享动作会弹出系统分享面板，首次需在面板选「炉石记牌器」（需先将本站添加到主屏幕）。<br>'+
+      '<b>进阶完全无弹窗版：</b>在快捷指令中把「分享」替换为「获取 URL 内容」→ Method POST → Request Body 选 File → 文件选「截图」→ URL 填 <span style="color:var(--gold2);">'+base+'?share=1</span> ，再添加「打开 URL」→ <span style="color:var(--gold2);">'+base+'?shared=1</span> 。这样完全不弹分享面板。'+
+    '</div>'+
+    '<button class="btn gray block" style="margin-top:10px;" onclick="closeModal()">关闭</button>';
   m.classList.add('show');
 }
 /* 通道二：快捷指令写入剪贴板标记 HS_START，切回前台时读取 */
