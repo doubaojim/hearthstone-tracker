@@ -1619,29 +1619,41 @@ function downloadShortcut(){
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   setTimeout(function(){ URL.revokeObjectURL(url); },2000);
 }
+/* 通过系统分享面板传递快捷指令文件（绕过未签名限制，最可靠） */
+function shareShortcut(){
+  var blob=new Blob([SHORTCUT_JSON],{type:'application/octet-stream'});
+  var file=new File([blob],'auto-shot.shortcut',{type:'application/octet-stream'});
+  if(navigator.canShare && navigator.canShare({files:[file]})){
+    navigator.share({files:[file],title:'炉石记牌器-自动截图上传'}).catch(function(){});
+  } else {
+    toast('当前浏览器不支持分享文件，请用下载文件方式');
+    downloadShortcut();
+  }
+}
 /* iOS 全自动快捷指令导入引导 */
 function showShortcutGuide(){
   var m=document.getElementById('modalMask'), s=document.getElementById('sheet');
   var base='https://doubaojim.github.io/hearthstone-tracker/';
   var sc=base+'auto-shot.shortcut';
   s.innerHTML='<div style="font-size:14px;font-weight:600;margin-bottom:8px;">iOS 全自动快捷指令</div>'+
-    '<div style="font-size:11px;color:var(--muted);margin-bottom:10px;line-height:1.5;">一键导入后，可设为「打开炉石传说时自动运行」，自动截图并分享到本应用分析随从阵容。</div>'+
+    '<div style="font-size:11px;color:var(--muted);margin-bottom:10px;line-height:1.5;">导入后可设为「打开炉石传说时自动运行」，自动截图并分享到本应用分析随从阵容。</div>'+
     '<div class="settle-row" style="margin-bottom:6px;">'+
-      '<button class="btn blue" style="flex:1;" onclick="window.location.href=\'shortcuts://import-shortcut?url='+encodeURIComponent(sc)+'\'">一键导入</button>'+
+      '<button class="btn blue" style="flex:1;" onclick="shareShortcut()">通过分享导入（推荐）</button>'+
       '<button class="btn gray" style="flex:1;" onclick="downloadShortcut()">下载文件</button>'+
     '</div>'+
-    '<div style="font-size:10px;color:var(--muted);margin-bottom:10px;line-height:1.6;">下载后打开 iOS「文件」App →「下载」文件夹 → 找到 <b>auto-shot.shortcut</b> → <b>长按</b>该文件 →「共享」→ 选择「快捷指令」→「导入快捷指令」。（直接点击无反应时请用长按→共享方式）</div>'+
+    '<div style="font-size:10px;color:var(--muted);margin-bottom:10px;line-height:1.6;">推荐点「通过分享导入」，在系统分享面板中选择「快捷指令」即可导入（若面板中没有快捷指令，滑到最右点「更多」添加）。此方式绕过未签名限制，最可靠。</div>'+
     '<div style="font-size:11px;line-height:1.7;color:var(--text);">'+
       '<b style="color:var(--gold2);">使用步骤：</b><br>'+
-      '1. 点「一键导入」，在快捷指令 App 确认添加；<br>'+
+      '1. 点「通过分享导入」→ 在分享面板选「快捷指令」→ 确认添加；<br>'+
       '2. 打开「快捷指令」→「自动化」→「创建个人自动化」；<br>'+
       '3. 触发选「App」→ 选「炉石传说」→ 勾选「打开」；<br>'+
       '4. 添加动作「运行快捷指令」→ 选「炉石记牌器-自动截图上传」；<br>'+
       '5. 关闭「运行前询问」，点完成。此后打开炉石即自动截图上传。'+
     '</div>'+
     '<div style="font-size:10px;color:var(--muted);margin-top:10px;line-height:1.6;">'+
-      '注：分享动作会弹出系统分享面板，首次需在面板选「炉石记牌器」（需先将本站添加到主屏幕）。<br>'+
-      '<b>进阶完全无弹窗版：</b>在快捷指令中把「分享」替换为「获取 URL 内容」→ Method POST → Request Body 选 File → 文件选「截图」→ URL 填 <span style="color:var(--gold2);">'+base+'?share=1</span> ，再添加「打开 URL」→ <span style="color:var(--gold2);">'+base+'?shared=1</span> 。这样完全不弹分享面板。'+
+      '<b>备选（下载文件）：</b>iOS 15+ 不支持从「文件」App 直接打开未签名快捷指令。下载后请通过 <b>AirDrop</b> 从另一台 Apple 设备发送到本机，收到后会自动导入；或在 Mac 上用「快捷指令」App 打开后通过 iCloud 同步。<br>'+
+      '注：快捷指令内的分享动作会弹出系统分享面板，首次需在面板选「炉石记牌器」（需先将本站添加到主屏幕）。<br>'+
+      '<b>进阶完全无弹窗版：</b>在快捷指令中把「分享」替换为「获取 URL 内容」→ Method POST → Request Body 选 File → 文件选「截图」→ URL 填 <span style="color:var(--gold2);">'+base+'?share=1</span> ，再添加「打开 URL」→ <span style="color:var(--gold2);">'+base+'?shared=1</span> 。'+
     '</div>'+
     '<button class="btn gray block" style="margin-top:10px;" onclick="closeModal()">关闭</button>';
   m.classList.add('show');
