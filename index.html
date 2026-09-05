@@ -300,9 +300,9 @@ var state = {
   tab:'constructed',
   matchActive:false,
   setup:{ myClass:'法师', oppClass:'法师' },
-  match:{ turn:1, mana:1, manaMax:1, myDeck:30, myHand:0, oppDeck:30, oppHand:0, myFatigue:0, oppFatigue:0, myPlayed:[], oppPlayed:[], oppSeen:[] },
+  match:{ turn:1, mana:1, manaMax:1, myDeck:30, myHand:0, oppDeck:30, oppHand:0, myFatigue:0, oppFatigue:0, myGrave:0, oppGrave:0, myPlayed:[], oppPlayed:[], oppSeen:[] },
   trackers: cardPool.map(function(c){ return {name:c.name,cost:c.cost,tribe:c.tribe,total:c.total,deck:c.total,hand:0,played:0}; }),
-  bg:{ hero:null, tier:1, turn:1, hp:40, gold:3, refreshes:0, tavern:[], owned:[], tribes:{} },
+  bg:{ hero:null, tier:1, turn:1, hp:40, gold:3, refreshes:0, tavern:[], owned:[], tribes:{}, opponents:[], oppSel:{}, oppName:'' },
   history:[],
   imported:0,
   browser:{ cls:'ALL', cost:'', q:'', limit:12 },
@@ -553,6 +553,7 @@ function setClass(which, cls){
 function startMatch(){
   var m = state.match;
   m.turn=1; m.mana=1; m.manaMax=1; m.myDeck=30; m.myHand=0; m.oppDeck=30; m.oppHand=0;
+  m.myFatigue=0; m.oppFatigue=0; m.myGrave=0; m.oppGrave=0; m.myPlayed=[]; m.oppPlayed=[]; m.oppSeen=[];
   m.myFatigue=0; m.oppFatigue=0; m.myPlayed=[]; m.oppPlayed=[]; m.oppSeen=[];
   state.trackers = cardPool.map(function(c){ return {name:c.name,cost:c.cost,tribe:c.tribe,total:c.total,deck:c.total,hand:0,played:0}; });
   state.matchActive=true; newMatchPrompted=false; save(); render();
@@ -572,6 +573,14 @@ function constructedView(){
   h += stat('对方牌库', m.oppDeck, 'var(--red)');
   h += stat('我方手牌', m.myHand, 'var(--blue)');
   h += stat('疲劳', (m.myFatigue||m.oppFatigue)?('我'+m.myFatigue+' 敌'+m.oppFatigue):'0', 'var(--orange)');
+  h += '</div>';
+
+  h += '<div class="panel" style="display:flex;align-items:center;gap:10px;">';
+  h += '<div style="flex:1;text-align:center;"><div style="font-size:20px;font-weight:800;color:var(--orange);">'+m.myGrave+'</div><div style="font-size:10px;color:var(--muted);">我方坟场</div></div>';
+  h += '<button class="btn gray" onclick="addGrave(\'my\')" style="padding:8px 12px;">+1</button>';
+  h += '<div style="width:1px;height:28px;background:var(--line);"></div>';
+  h += '<div style="flex:1;text-align:center;"><div style="font-size:20px;font-weight:800;color:var(--orange);">'+m.oppGrave+'</div><div style="font-size:10px;color:var(--muted);">对方坟场</div></div>';
+  h += '<button class="btn gray" onclick="addGrave(\'opp\')" style="padding:8px 12px;">+1</button>';
   h += '</div>';
 
   h += '<div class="panel" style="display:flex;align-items:center;gap:10px;">';
@@ -643,6 +652,11 @@ function settle(res){
 function draw(){
   var m=state.match;
   if(m.myDeck>0){m.myDeck--;m.myHand++;}else{m.myFatigue++;}
+  render();
+}
+function addGrave(side){
+  var m=state.match;
+  if(side==='my'){m.myGrave++;}else{m.oppGrave++;}
   render();
 }
 function playUnknown(){
@@ -993,6 +1007,29 @@ function battlegroundsView(){
   h += '</div>';
   h += '</div>';
 
+  h += '<div class="panel">';
+  h += '<div class="panel-title"><span class="dot" style="background:var(--blue)"></span>对手阵容记录';
+  h += '<span style="margin-left:auto;font-size:10px;color:var(--muted);">'+b.opponents.length+' 位</span></div>';
+  if(b.opponents.length){
+    b.opponents.forEach(function(o,i){
+      h += '<div class="card-row"><div class="info"><div class="nm">'+esc(o.name)+'</div>'+
+        '<div class="sub">第 '+o.turn+' 回合 · '+(o.tribes.length?esc(o.tribes.join('、')):'未选种族')+'</div></div>'+
+        '<div class="micro"><button onclick="removeBgOpp('+i+')">删除</button></div></div>';
+    });
+  }else{
+    h += '<div style="font-size:11px;color:var(--muted);">还没有记录。每遇到一位对手，选好种族点「记录」，即可追踪本局遇到的所有阵容。</div>';
+  }
+  h += '<input value="'+esc(b.oppName||'')+'" oninput="state.bg.oppName=this.value" placeholder="对手名称（如：机械哥布林）" style="width:100%;background:#0F131A;color:var(--text);border:1px solid var(--line2);border-radius:10px;padding:9px 11px;font-size:12px;margin-top:10px;box-sizing:border-box;">';
+  h += '<div class="tribe-wrap" style="margin-top:8px;">';
+  tribes.forEach(function(t){
+    var on = b.oppSel && b.oppSel[t];
+    h += '<button class="tribe '+(on?'on':'')+'" onclick="toggleBgOppTribe(\''+t+'\')">'+t+'</button>';
+  });
+  h += '</div>';
+  h += '<button class="btn blue block" style="margin-top:10px;" onclick="addBgOpponent()">记录该对手阵容</button>';
+  h += '<div style="font-size:10px;color:var(--muted);margin-top:6px;">由于网页无法读取游戏画面，阵容为手动记录；遇对手时按对方主力种族点选即可。</div>';
+  h += '</div>';
+
   h += '<button class="btn primary block" onclick="bgEndTurn()" style="margin-bottom:14px;">结束回合</button>';
 
   h += '<div class="panel">';
@@ -1048,6 +1085,15 @@ function sellMinion(i){
   mm.sold=true; b.gold+=1; render();
 }
 function toggleTribe(t){ var b=state.bg; b.tribes[t]=!b.tribes[t]; render(); }
+function toggleBgOppTribe(t){ var b=state.bg; b.oppSel=b.oppSel||{}; b.oppSel[t]=!b.oppSel[t]; render(); }
+function addBgOpponent(){
+  var b=state.bg, sel=[];
+  for(var t in (b.oppSel||{})){ if(b.oppSel[t]) sel.push(t); }
+  var name=(b.oppName||'').trim()||('对手'+(b.opponents.length+1));
+  b.opponents.push({name:name,tribes:sel,turn:b.turn});
+  b.oppSel={}; b.oppName=''; render();
+}
+function removeBgOpp(i){ state.bg.opponents.splice(i,1); render(); }
 function bgEndTurn(){
   var b=state.bg;
   b.turn++; b.gold=3+b.tier; b.refreshes=0; render();
@@ -1055,6 +1101,7 @@ function bgEndTurn(){
 function bgSettle(res){
   record('酒馆战棋', state.bg.hero?state.bg.hero.name:'酒馆对局', res, state.bg.turn);
   state.bg.hero=null; state.bg.tavern=[]; state.bg.owned=[]; state.bg.tribes={};
+  state.bg.opponents=[]; state.bg.oppSel={}; state.bg.oppName='';
   render();
 }
 
