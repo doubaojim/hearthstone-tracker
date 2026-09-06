@@ -1827,7 +1827,7 @@ function autoImportShot(dataURL, hint){
       doHeroOCR(d);
       return;
     }
-    /* 酒馆记牌界面：保存截图，识别左侧对手英雄填入导航栏，对手阵容随从不导入 */
+    /* 酒馆记牌界面：保存截图，识别左侧对手英雄填入导航栏，我方/对手阵容均导入随从 */
     if(state.inMatch && state.matchMode==='battlegrounds'){
       var side=hint==='opp'?'opp':'my';
       if(side==='my'){
@@ -1855,11 +1855,10 @@ function autoImportShot(dataURL, hint){
           if(filled>0) toast('已识别左侧对手英雄 '+filled+' 位（排除我方英雄），填入导航栏');
         }
       });
-      /* 我方阵容导入随从；对手阵容随从不自动导入（避免完整界面截图误识别） */
-      if(side==='my'){
-        autoRecognizeMinions(d,side);
-      }else{
-        toast('对手截图已保存，左侧对手英雄已识别填入导航栏；随从不自动导入，可手动点选添加');
+      /* 我方阵容和对手阵容均自动导入随从（对手导入到当前选中的导航栏槽位） */
+      autoRecognizeMinions(d,side);
+      if(side==='opp'){
+        toast('对手截图已保存，左侧对手英雄已识别填入导航栏；随从已导入当前对手阵容，可手动修正');
       }
       return;
     }
