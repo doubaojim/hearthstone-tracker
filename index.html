@@ -1039,6 +1039,47 @@ function getImgHashStatus(){
     loading: imgHashDB.loading
   };
 }
+/* 识别截图左侧对手英雄列表（酒馆战棋左侧7个对手头像），分别填入导航栏 */
+function recognizeLeftOpponents(dataURL, cb){
+  if(!imgHashDB.loaded.heroes){ cb([]); return; }
+  var img=new Image();
+  img.onload=function(){
+    var w=img.naturalWidth||img.width, h=img.naturalHeight||img.height;
+    /* 左侧英雄区域：x=0~宽度5%，y=高度10%~80% */
+    var leftW=Math.max(40, Math.floor(w*0.05));
+    var topY=Math.floor(h*0.10), bottomY=Math.floor(h*0.80);
+    var regionH=bottomY-topY, count=7, eachH=Math.floor(regionH/count);
+    var results=[];
+    for(var i=0;i<count;i++){
+      var sy=topY+i*eachH;
+      try{
+        /* 裁剪单个英雄头像并缩放到8x8计算aHash */
+        var c8=document.createElement('canvas'); c8.width=8; c8.height=8;
+        var cx8=c8.getContext('2d');
+        cx8.drawImage(img, 0, sy, leftW, eachH, 0, 0, 8, 8);
+        var d=cx8.getImageData(0,0,8,8).data;
+        var g=new Array(64);
+        for(var j=0;j<64;j++) g[j]=(d[j*4]+d[j*4+1]+d[j*4+2])/3;
+        var avg=g.reduce(function(s,v){return s+v;},0)/64;
+        var hash='';
+        for(var j=0;j<64;j++) hash+=g[j]>=avg?'1':'0';
+        /* 与英雄库比对，找最匹配 */
+        var bestName='', bestDist=999;
+        for(var name in imgHashDB.heroes){
+          var dist=0;
+          for(var k=0;k<64;k++) if(hash[k]!==imgHashDB.heroes[name][k]) dist++;
+          if(dist<bestDist){ bestDist=dist; bestName=name; }
+        }
+        results.push({index:i, name:bestName, dist:bestDist});
+      }catch(e){
+        results.push({index:i, name:'', dist:999});
+      }
+    }
+    cb(results);
+  };
+  img.onerror=function(){ cb([]); };
+  img.src=dataURL;
+}
 function startBgMatch(){
   var b=state.bg;
   if(b.importMyHero){
@@ -1786,7 +1827,7 @@ function autoImportShot(dataURL, hint){
       doHeroOCR(d);
       return;
     }
-    /* 酒馆记牌界面：保存截图并自动识别随从 */
+    /* 酒馆记牌界面：保存截图，识别左侧对手英雄填入导航栏，对手阵容随从不导入 */
     if(state.inMatch && state.matchMode==='battlegrounds'){
       var side=hint==='opp'?'opp':'my';
       if(side==='my'){
@@ -1796,7 +1837,27 @@ function autoImportShot(dataURL, hint){
         var cur=b.opponents[b.oppIdx]; cur.shot=d; cur.turn=b.turn;
       }
       save(); render();
-      autoRecognizeMinions(d,side);
+      /* 识别截图左侧对手英雄列表，分别填入对手阵容导航栏（前6位） */
+      recognizeLeftOpponents(d, function(oppHeroes){
+        if(oppHeroes && oppHeroes.length){
+          while(b.opponents.length<6) b.opponents.push({name:'',tribes:[],shot:null,defeated:false,turn:0,minions:[]});
+          var filled=0;
+          oppHeroes.slice(0,6).forEach(function(oh, i){
+            if(oh.name && oh.dist<=25){
+              b.opponents[i].name=oh.name;
+              filled++;
+            }
+          });
+          save(); render();
+          if(filled>0) toast('已识别左侧对手英雄 '+filled+' 位，填入导航栏');
+        }
+      });
+      /* 我方阵容导入随从；对手阵容随从不自动导入（避免完整界面截图误识别） */
+      if(side==='my'){
+        autoRecognizeMinions(d,side);
+      }else{
+        toast('对手截图已保存，左侧对手英雄已识别填入导航栏；随从不自动导入，可手动点选添加');
+      }
       return;
     }
     toast('请先进入酒馆战棋记牌界面再导入截图');
