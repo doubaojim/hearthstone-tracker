@@ -750,53 +750,51 @@ function runHeroOCR(){
   doHeroOCR(b.importShot);
 }
 function doHeroOCR(dataURL){
+  /* 如果图片比对模型已加载，优先纯图片比对识别（不依赖Tesseract，速度快且稳定） */
+  if(imgHashDB.loaded.heroes){
+    toast('正在通过图片比对识别英雄…');
+    recognizeByImage(dataURL, 'hero', function(imgMatches){
+      /* 汉明距离<=30认为可能匹配，取前10个 */
+      var matched=imgMatches.filter(function(m){return (m.dist||99)<=30;}).map(function(m){
+        var hero=getHeroes().find(function(x){return x.name===m.name;});
+        return hero||{name:m.name};
+      }).slice(0,10);
+      state.bg.importHeroes=matched;
+      if(matched.length>0 && !state.bg.importMyHero){
+        state.bg.importMyHero=matched[0].name;
+        for(var i=1;i<matched.length && i<=6;i++){
+          if(state.bg.importOppHeroes.indexOf(matched[i].name)<0) state.bg.importOppHeroes.push(matched[i].name);
+        }
+      }
+      save(); render();
+      if(matched.length>0){
+        toast('图片比对识别到 '+matched.length+' 个英雄');
+      }else{
+        toast('未识别到英雄，可手动选择');
+        showManualHeroSelect(dataURL);
+      }
+    });
+    return;
+  }
+  /* 图片比对模型未加载：使用OCR识别 */
   toast('正在识别英雄名称（首次需下载中文模型）…');
   loadTesseract(function(){
     ocrRecognize(dataURL, function(res, err){
       var text=(res&&res.data&&res.data.text)||'';
       var ocrMatched=matchHeroesFromText(text);
-      /* 如果图片比对模型已加载，同时进行图片比对 */
-      if(imgHashDB.loaded.heroes){
-        recognizeByImage(dataURL, 'hero', function(imgMatches){
-          /* 综合OCR和图片比对结果 */
-          var score={};
-          ocrMatched.forEach(function(h,i){ score[h.name]=(score[h.name]||0)+(10-i); });
-          imgMatches.forEach(function(m,i){ score[m.name]=(score[m.name]||0)+(8-i); });
-          var merged=Object.keys(score).map(function(n){
-            var hero=getHeroes().find(function(x){return x.name===n;});
-            return hero||{name:n};
-          }).sort(function(a,b){return (score[b.name]||0)-(score[a.name]||0);});
-          state.bg.importHeroes=merged.slice(0,10);
-          if(merged.length>0 && !state.bg.importMyHero){
-            state.bg.importMyHero=merged[0].name;
-            for(var i=1;i<merged.length && i<=6;i++){
-              if(state.bg.importOppHeroes.indexOf(merged[i].name)<0) state.bg.importOppHeroes.push(merged[i].name);
-            }
-          }
-          save(); render();
-          if(merged.length>0){
-            toast('OCR+图片比对识别到 '+merged.length+' 个英雄');
-          }else{
-            toast('未识别到英雄，可手动选择');
-            showManualHeroSelect(dataURL);
-          }
-        });
+      state.bg.importHeroes=ocrMatched;
+      if(ocrMatched.length>0 && !state.bg.importMyHero){
+        state.bg.importMyHero=ocrMatched[0].name;
+        for(var i=1;i<ocrMatched.length && i<=6;i++){
+          if(state.bg.importOppHeroes.indexOf(ocrMatched[i].name)<0) state.bg.importOppHeroes.push(ocrMatched[i].name);
+        }
+      }
+      save(); render();
+      if(ocrMatched.length>0){
+        toast('OCR识别到 '+ocrMatched.length+' 个英雄（可在设置下载图片比对模型提高准确率）');
       }else{
-        /* 仅OCR */
-        state.bg.importHeroes=ocrMatched;
-        if(ocrMatched.length>0 && !state.bg.importMyHero){
-          state.bg.importMyHero=ocrMatched[0].name;
-          for(var i=1;i<ocrMatched.length && i<=6;i++){
-            if(state.bg.importOppHeroes.indexOf(ocrMatched[i].name)<0) state.bg.importOppHeroes.push(ocrMatched[i].name);
-          }
-        }
-        save(); render();
-        if(ocrMatched.length>0){
-          toast('OCR识别到 '+ocrMatched.length+' 个英雄（可在设置下载图片比对模型提高准确率）');
-        }else{
-          if(err) toast(err); else toast('未自动识别到英雄，可手动选择');
-          showManualHeroSelect(dataURL);
-        }
+        if(err) toast(err); else toast('未自动识别到英雄，可手动选择');
+        showManualHeroSelect(dataURL);
       }
     });
   });
