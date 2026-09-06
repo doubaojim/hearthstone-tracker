@@ -753,22 +753,50 @@ function doHeroOCR(dataURL){
   toast('正在识别英雄名称（首次需下载中文模型）…');
   loadTesseract(function(){
     ocrRecognize(dataURL, function(res, err){
-      if(err){ toast(err); showManualHeroSelect(dataURL); return; }
       var text=(res&&res.data&&res.data.text)||'';
-      var matched=matchHeroesFromText(text);
-      state.bg.importHeroes=matched;
-      if(matched.length>0 && !state.bg.importMyHero){
-        state.bg.importMyHero=matched[0].name;
-        for(var i=1;i<matched.length && i<=6;i++){
-          if(state.bg.importOppHeroes.indexOf(matched[i].name)<0) state.bg.importOppHeroes.push(matched[i].name);
-        }
-      }
-      save(); render();
-      if(matched.length>0){
-        toast('识别到 '+matched.length+' 个英雄');
+      var ocrMatched=matchHeroesFromText(text);
+      /* 如果图片比对模型已加载，同时进行图片比对 */
+      if(imgHashDB.loaded.heroes){
+        recognizeByImage(dataURL, 'hero', function(imgMatches){
+          /* 综合OCR和图片比对结果 */
+          var score={};
+          ocrMatched.forEach(function(h,i){ score[h.name]=(score[h.name]||0)+(10-i); });
+          imgMatches.forEach(function(m,i){ score[m.name]=(score[m.name]||0)+(8-i); });
+          var merged=Object.keys(score).map(function(n){
+            var hero=getHeroes().find(function(x){return x.name===n;});
+            return hero||{name:n};
+          }).sort(function(a,b){return (score[b.name]||0)-(score[a.name]||0);});
+          state.bg.importHeroes=merged.slice(0,10);
+          if(merged.length>0 && !state.bg.importMyHero){
+            state.bg.importMyHero=merged[0].name;
+            for(var i=1;i<merged.length && i<=6;i++){
+              if(state.bg.importOppHeroes.indexOf(merged[i].name)<0) state.bg.importOppHeroes.push(merged[i].name);
+            }
+          }
+          save(); render();
+          if(merged.length>0){
+            toast('OCR+图片比对识别到 '+merged.length+' 个英雄');
+          }else{
+            toast('未识别到英雄，可手动选择');
+            showManualHeroSelect(dataURL);
+          }
+        });
       }else{
-        toast('未自动识别到英雄，可手动选择');
-        showManualHeroSelect(dataURL);
+        /* 仅OCR */
+        state.bg.importHeroes=ocrMatched;
+        if(ocrMatched.length>0 && !state.bg.importMyHero){
+          state.bg.importMyHero=ocrMatched[0].name;
+          for(var i=1;i<ocrMatched.length && i<=6;i++){
+            if(state.bg.importOppHeroes.indexOf(ocrMatched[i].name)<0) state.bg.importOppHeroes.push(ocrMatched[i].name);
+          }
+        }
+        save(); render();
+        if(ocrMatched.length>0){
+          toast('OCR识别到 '+ocrMatched.length+' 个英雄（可在设置下载图片比对模型提高准确率）');
+        }else{
+          if(err) toast(err); else toast('未自动识别到英雄，可手动选择');
+          showManualHeroSelect(dataURL);
+        }
       }
     });
   });
@@ -877,6 +905,175 @@ function ocrRecognize(dataURL, cb){
     });
   }
   tryRecognize(0);
+}
+
+/* ============================================================
+   图片比对识别：感知哈希 aHash（8x8灰度，64位）
+   ============================================================ */
+var imgHashDB={heroes:{},minions:{},loaded:{heroes:false,minions:false},loading:false};
+/* 计算感知哈希：8x8灰度，平均阈值，64位二进制 */
+function computeAHash(img){
+  try{
+    var canvas=document.createElement('canvas');
+    canvas.width=8; canvas.height=8;
+    var ctx=canvas.getContext('2d');
+    ctx.drawImage(img,0,0,8,8);
+    var data=ctx.getImageData(0,0,8,8).data;
+    var gray=new Array(64);
+    for(var i=0;i<64;i++){ gray[i]=(data[i*4]+data[i*4+1]+data[i*4+2])/3; }
+    var avg=gray.reduce(function(s,v){return s+v;},0)/64;
+    var hash='';
+    for(var i=0;i<64;i++){ hash += gray[i]>=avg?'1':'0'; }
+    return hash;
+  }catch(e){ return null; }
+}
+function hammingDist(h1,h2){
+  if(!h1||!h2||h1.length!==h2.length) return 999;
+  var d=0;
+  for(var i=0;i<h1.length;i++){ if(h1[i]!==h2[i]) d++; }
+  return d;
+}
+/* 从哈希库中找最匹配的前N个 */
+function matchByHash(hash, pool, topN){
+  var results=[];
+  for(var key in pool){
+    results.push({name:key, dist:hammingDist(hash, pool[key])});
+  }
+  results.sort(function(a,b){return a.dist-b.dist;});
+  return results.slice(0, topN||5);
+}
+/* 加载英雄头像哈希库（120张，自动下载计算） */
+function loadHeroHashes(cb){
+  if(imgHashDB.loaded.heroes){ cb&&cb(true); return; }
+  if(imgHashDB.loading){ cb&&cb(false); return; }
+  imgHashDB.loading=true;
+  var heroes=getHeroes().filter(function(h){return h.id;});
+  var done=0, total=heroes.length;
+  var checkDone=function(){
+    done++;
+    if(done>=total){
+      imgHashDB.loading=false;
+      imgHashDB.loaded.heroes=true;
+      try{ localStorage.setItem('hs_imghash_heroes', JSON.stringify(imgHashDB.heroes)); }catch(e){}
+      cb&&cb(true);
+    }
+  };
+  /* 尝试从缓存加载 */
+  try{
+    var cached=localStorage.getItem('hs_imghash_heroes');
+    if(cached){
+      imgHashDB.heroes=JSON.parse(cached);
+      imgHashDB.loaded.heroes=true;
+      imgHashDB.loading=false;
+      cb&&cb(true);
+      return;
+    }
+  }catch(e){}
+  toast('正在下载英雄图片比对模型（'+total+'张）…');
+  heroes.forEach(function(h){
+    var img=new Image();
+    img.crossOrigin='anonymous';
+    img.onload=function(){
+      var hash=computeAHash(img);
+      if(hash) imgHashDB.heroes[h.name]=hash;
+      checkDone();
+    };
+    img.onerror=function(){ checkDone(); };
+    img.src='https://art.hearthstonejson.com/v1/256x/'+h.id+'.webp';
+  });
+}
+/* 加载随从图片哈希库（1467张，可选，较大） */
+function loadMinionHashes(cb){
+  if(imgHashDB.loaded.minions){ cb&&cb(true); return; }
+  if(imgHashDB.loading){ cb&&cb(false); return; }
+  imgHashDB.loading=true;
+  var pool=(bgDB.loaded&&bgDB.minions.length)?bgDB.minions:bgPool;
+  var minions=pool.filter(function(m){return m.id;});
+  var done=0, total=minions.length;
+  var checkDone=function(){
+    done++;
+    if(done%100===0) toast('图片比对模型下载中… '+done+'/'+total);
+    if(done>=total){
+      imgHashDB.loading=false;
+      imgHashDB.loaded.minions=true;
+      try{ localStorage.setItem('hs_imghash_minions', JSON.stringify(imgHashDB.minions)); }catch(e){}
+      cb&&cb(true);
+    }
+  };
+  try{
+    var cached=localStorage.getItem('hs_imghash_minions');
+    if(cached){
+      imgHashDB.minions=JSON.parse(cached);
+      imgHashDB.loaded.minions=true;
+      imgHashDB.loading=false;
+      cb&&cb(true);
+      return;
+    }
+  }catch(e){}
+  toast('正在下载随从图片比对模型（'+total+'张，较大，建议WiFi下进行）…');
+  minions.forEach(function(m){
+    var img=new Image();
+    img.crossOrigin='anonymous';
+    img.onload=function(){
+      var hash=computeAHash(img);
+      if(hash) imgHashDB.minions[m.name]=hash;
+      checkDone();
+    };
+    img.onerror=function(){ checkDone(); };
+    img.src='https://art.hearthstonejson.com/v1/256x/'+m.id+'.webp';
+  });
+}
+/* 对截图进行图片比对识别，返回最匹配的英雄/随从 */
+function recognizeByImage(dataURL, type, cb){
+  var pool = type==='hero' ? imgHashDB.heroes : imgHashDB.minions;
+  var loaded = type==='hero' ? imgHashDB.loaded.heroes : imgHashDB.loaded.minions;
+  if(!loaded){ cb([]); return; }
+  var img=new Image();
+  img.onload=function(){
+    var hash=computeAHash(img);
+    if(!hash){ cb([]); return; }
+    /* 对整张截图比对 */
+    var matches=matchByHash(hash, pool, 8);
+    /* 同时对截图中心区域比对（卡牌通常在中心） */
+    try{
+      var canvas=document.createElement('canvas');
+      var cw=img.naturalWidth||img.width, ch=img.naturalHeight||img.height;
+      canvas.width=cw; canvas.height=ch;
+      var ctx=canvas.getContext('2d');
+      ctx.drawImage(img,0,0);
+      /* 裁剪中心60%区域 */
+      var sx=cw*0.2, sy=ch*0.2, sw=cw*0.6, sh=ch*0.6;
+      var c2=document.createElement('canvas');
+      c2.width=8; c2.height=8;
+      var ctx2=c2.getContext('2d');
+      ctx2.drawImage(canvas, sx, sy, sw, sh, 0, 0, 8, 8);
+      var data=ctx2.getImageData(0,0,8,8).data;
+      var gray=new Array(64);
+      for(var i=0;i<64;i++){ gray[i]=(data[i*4]+data[i*4+1]+data[i*4+2])/3; }
+      var avg=gray.reduce(function(s,v){return s+v;},0)/64;
+      var hash2='';
+      for(var i=0;i<64;i++){ hash2 += gray[i]>=avg?'1':'0'; }
+      var matches2=matchByHash(hash2, pool, 8);
+      /* 合并两次结果，取交集优先 */
+      var score={};
+      matches.forEach(function(m,i){ score[m.name]=(score[m.name]||0)+(8-i); });
+      matches2.forEach(function(m,i){ score[m.name]=(score[m.name]||0)+(8-i); });
+      var merged=Object.keys(score).map(function(n){return {name:n, score:score[n]};});
+      merged.sort(function(a,b){return b.score-a.score;});
+      cb(merged.slice(0,8));
+    }catch(e){
+      cb(matches);
+    }
+  };
+  img.onerror=function(){ cb([]); };
+  img.src=dataURL;
+}
+function getImgHashStatus(){
+  return {
+    heroes: imgHashDB.loaded.heroes ? Object.keys(imgHashDB.heroes).length : 0,
+    minions: imgHashDB.loaded.minions ? Object.keys(imgHashDB.minions).length : 0,
+    loading: imgHashDB.loading
+  };
 }
 function startBgMatch(){
   var b=state.bg;
@@ -1631,34 +1828,51 @@ function autoOCRMinions(dataURL, side){
   toast('正在识别截图中的随从阵容…');
   loadTesseract(function(){
     ocrRecognize(dataURL, function(res, err){
-      if(err){ toast(err); showManualMinionSelect(dataURL, side); return; }
       var text=(res&&res.data&&res.data.text)||'';
-      var matched=matchMinionsFromText(text);
-      var b=state.bg;
-      if(side==='my'){
-        matched.forEach(function(mm){
-          b.owned.push({name:mm.name,cost:mm.cost,tribe:mm.tribe||'',tier:mm.tier||1,a:mm.a||1,h:mm.h||1,sold:false,tripled:false});
-          if(mm.tribe) b.tribes[mm.tribe]=true;
+      var ocrMatched=matchMinionsFromText(text);
+      var pool=(bgDB.loaded&&bgDB.minions.length)?bgDB.minions:bgPool;
+      /* 如果随从图片比对模型已加载，综合图片比对结果 */
+      if(imgHashDB.loaded.minions){
+        recognizeByImage(dataURL, 'minion', function(imgMatches){
+          var score={};
+          ocrMatched.forEach(function(m,i){ score[m.name]=(score[m.name]||0)+(14-i); });
+          imgMatches.forEach(function(m,i){ score[m.name]=(score[m.name]||0)+(8-i); });
+          var merged=Object.keys(score).map(function(n){
+            return pool.find(function(x){return x.name===n;})||{name:n,cost:0,tribe:'',tier:1,a:1,h:1};
+          }).sort(function(a,b){return (score[b.name]||0)-(score[a.name]||0);}).slice(0,14);
+          addMinionsToSide(merged, side, text, true);
         });
       }else{
-        while(b.opponents.length<6) b.opponents.push({name:'',tribes:[],shot:null,defeated:false,turn:0,minions:[]});
-        var cur=b.opponents[b.oppIdx]; cur.minions=cur.minions||[];
-        matched.forEach(function(mm){
-          cur.minions.push({name:mm.name,cost:mm.cost,tribe:mm.tribe||'',tier:mm.tier||1,a:mm.a||1,h:mm.h||1});
-          if(mm.tribe && cur.tribes.indexOf(mm.tribe)<0) cur.tribes.push(mm.tribe);
-        });
-        var heroes=matchHeroesFromText(text);
-        if(heroes.length>0 && !cur.name) cur.name=heroes[0].name;
-      }
-      save(); render();
-      if(matched.length>0){
-        toast('识别到 '+matched.length+' 个随从，已自动添加到'+(side==='my'?'我方阵容':'对手阵容'));
-      }else{
-        toast('未自动识别到随从，可手动点选添加');
-        showManualMinionSelect(dataURL, side);
+        addMinionsToSide(ocrMatched, side, text, false);
+        if(err) toast(err);
       }
     });
   });
+}
+function addMinionsToSide(matched, side, text, useImg){
+  var b=state.bg;
+  if(side==='my'){
+    matched.forEach(function(mm){
+      b.owned.push({name:mm.name,cost:mm.cost,tribe:mm.tribe||'',tier:mm.tier||1,a:mm.a||1,h:mm.h||1,sold:false,tripled:false});
+      if(mm.tribe) b.tribes[mm.tribe]=true;
+    });
+  }else{
+    while(b.opponents.length<6) b.opponents.push({name:'',tribes:[],shot:null,defeated:false,turn:0,minions:[]});
+    var cur=b.opponents[b.oppIdx]; cur.minions=cur.minions||[];
+    matched.forEach(function(mm){
+      cur.minions.push({name:mm.name,cost:mm.cost,tribe:mm.tribe||'',tier:mm.tier||1,a:mm.a||1,h:mm.h||1});
+      if(mm.tribe && cur.tribes.indexOf(mm.tribe)<0) cur.tribes.push(mm.tribe);
+    });
+    var heroes=matchHeroesFromText(text||'');
+    if(heroes.length>0 && !cur.name) cur.name=heroes[0].name;
+  }
+  save(); render();
+  if(matched.length>0){
+    toast((useImg?'OCR+图片比对':'OCR')+'识别到 '+matched.length+' 个随从，已添加到'+(side==='my'?'我方阵容':'对手阵容'));
+  }else{
+    toast('未自动识别到随从，可手动点选添加');
+    showManualMinionSelect(state.bg.boardShot || (b.opponents[b.oppIdx]&&b.opponents[b.oppIdx].shot) || '', side);
+  }
 }
 /* 识别失败后手动选择随从弹层 */
 function showManualMinionSelect(dataURL, side){
@@ -1832,6 +2046,34 @@ function settingsView(){
     h += '<div style="font-size:11px;color:var(--muted);margin-bottom:8px;">酒馆战棋快捷指令截图自动识别随从阵容时，需下载中文 OCR 模型（约 10MB，仅一次）。建议在此预下载，避免识别时等待。</div>';
     h += '<button class="btn blue block" onclick="preloadOCR()">预下载中文 OCR 模型</button>';
   }
+  h += '</div>';
+
+  /* 图片比对模型 */
+  h += '<div class="panel"><div class="panel-title"><span class="dot" style="background:var(--green)"></span>图片比对识别模型</div>';
+  var imgSt=getImgHashStatus();
+  if(imgSt.heroes>0){
+    h += '<div class="kv"><span class="k">英雄模型</span><span class="v" style="color:var(--green)">已加载 '+imgSt.heroes+' 个</span></div>';
+  }else{
+    h += '<div class="kv"><span class="k">英雄模型</span><span class="v" style="color:var(--muted)">未下载</span></div>';
+  }
+  if(imgSt.minions>0){
+    h += '<div class="kv"><span class="k">随从模型</span><span class="v" style="color:var(--green)">已加载 '+imgSt.minions+' 个</span></div>';
+  }else{
+    h += '<div class="kv"><span class="k">随从模型</span><span class="v" style="color:var(--muted)">未下载</span></div>';
+  }
+  h += '<div style="font-size:10px;color:var(--muted);margin-top:8px;line-height:1.5;">下载后截图识别将同时使用「OCR文字识别 + 图片感知哈希比对」，综合判断显著提高炉石艺术字体的识别准确率。英雄模型 120 张（推荐），随从模型 1467 张（较大，建议 WiFi 下下载）。</div>';
+  h += '<div class="settle-row" style="margin-top:10px;">';
+  if(imgSt.heroes>0){
+    h += '<button class="btn gray" style="flex:1;" onclick="loadHeroHashes(function(){render();toast(\'英雄模型已就绪\');})">重新下载英雄模型</button>';
+  }else{
+    h += '<button class="btn green" style="flex:1;" onclick="loadHeroHashes(function(){render();toast(\'英雄图片比对模型下载完成\');})">下载英雄模型（推荐）</button>';
+  }
+  if(imgSt.minions>0){
+    h += '<button class="btn gray" style="flex:1;" onclick="loadMinionHashes(function(){render();toast(\'随从模型已就绪\');})">重新下载随从模型</button>';
+  }else{
+    h += '<button class="btn blue" style="flex:1;" onclick="loadMinionHashes(function(){render();toast(\'随从图片比对模型下载完成\');})">下载随从模型</button>';
+  }
+  h += '</div>';
   h += '</div>';
 
   h += '<div class="panel"><div class="panel-title"><span class="dot" style="background:var(--blue)"></span>iOS 快捷指令</div>';
