@@ -1906,34 +1906,29 @@ function autoImportShot(dataURL, hint){
           save(); render();
         }
       });
-      /* 优先OCR识别左上角玩家名称，根据是否为莉莉安·辛恩决定导入策略 */
-      recognizeOpponentName(d, function(oppName){
-        if(oppName && (oppName.indexOf('莉莉安')>=0 || oppName.indexOf('辛恩')>=0)){
-          /* 莉莉安·辛恩：不导入对手阵容导航栏，随从不导入对手阵容 */
-          toast('识别到对手玩家：'+oppName+'，不导入导航栏，随从不自动导入对手阵容');
+      /* 识别顶部中间当前对手英雄头像，根据识别距离决定导入策略 */
+      recognizeTopOpponent(d, function(topOpp){
+        if(topOpp && topOpp.name && topOpp.dist<=25){
+          /* 识别可靠（距离<=25）：对应到导航栏中该英雄位置，将随从导入该对手阵容 */
+          var oppIdx = -1;
+          for(var i=0;i<b.opponents.length;i++){
+            if(b.opponents[i].name === topOpp.name){ oppIdx=i; break; }
+          }
+          if(oppIdx>=0){
+            b.oppIdx=oppIdx;
+            save(); render();
+            toast('当前对手英雄：'+topOpp.name+'（距离='+topOpp.dist+'），已对应到导航栏第'+(oppIdx+1)+'位，随从导入该对手阵容');
+          }else{
+            toast('当前对手英雄：'+topOpp.name+'（距离='+topOpp.dist+'），导航栏中未找到，随从导入当前选中槽位');
+          }
+          autoRecognizeMinions(d,side);
+        }else{
+          /* 识别不可靠（距离>25或未识别，如莉莉安·辛恩不在英雄库中）：不导入导航栏，随从不导入对手阵容 */
+          var distStr = topOpp ? ('（距离='+topOpp.dist+'）') : '';
+          toast('当前对手英雄识别不可靠'+distStr+'，不导入导航栏，随从不自动导入对手阵容；我方阵容正常导入');
           if(side==='my'){
             autoRecognizeMinions(d,side);
           }
-        }else{
-          /* 其他玩家：识别顶部中间英雄头像，对应到导航栏，将随从导入该对手阵容 */
-          recognizeTopOpponent(d, function(topOpp){
-            if(topOpp && topOpp.name){
-              var oppIdx = -1;
-              for(var i=0;i<b.opponents.length;i++){
-                if(b.opponents[i].name === topOpp.name){ oppIdx=i; break; }
-              }
-              if(oppIdx>=0){
-                b.oppIdx=oppIdx;
-                save(); render();
-                toast('当前对手英雄：'+topOpp.name+'，已对应到导航栏第'+(oppIdx+1)+'位，随从导入该对手阵容');
-              }else{
-                toast('当前对手英雄：'+topOpp.name+'（距离='+topOpp.dist+'），导航栏中未找到，随从导入当前选中槽位');
-              }
-            }else{
-              toast('未识别到顶部对手英雄，随从导入当前选中槽位，可手动切换');
-            }
-            autoRecognizeMinions(d,side);
-          });
         }
       });
       return;
