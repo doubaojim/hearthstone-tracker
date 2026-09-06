@@ -1054,13 +1054,13 @@ function recognizeByImage(dataURL, type, cb){
       var hash2='';
       for(var i=0;i<64;i++){ hash2 += gray[i]>=avg?'1':'0'; }
       var matches2=matchByHash(hash2, pool, 8);
-      /* 合并两次结果，取交集优先 */
-      var score={};
-      matches.forEach(function(m,i){ score[m.name]=(score[m.name]||0)+(8-i); });
-      matches2.forEach(function(m,i){ score[m.name]=(score[m.name]||0)+(8-i); });
-      var merged=Object.keys(score).map(function(n){return {name:n, score:score[n]};});
+      /* 合并两次结果，取交集优先，dist取较小值 */
+      var score={}, distMap={};
+      matches.forEach(function(m,i){ score[m.name]=(score[m.name]||0)+(8-i); distMap[m.name]=m.dist; });
+      matches2.forEach(function(m,i){ score[m.name]=(score[m.name]||0)+(8-i); if(distMap[m.name]===undefined||m.dist<distMap[m.name]) distMap[m.name]=m.dist; });
+      var merged=Object.keys(score).map(function(n){return {name:n, score:score[n], dist:distMap[n]!==undefined?distMap[n]:99};});
       merged.sort(function(a,b){return b.score-a.score;});
-      cb(merged.slice(0,8));
+      cb(merged.slice(0,12));
     }catch(e){
       cb(matches);
     }
@@ -1614,6 +1614,16 @@ function battlegroundsView(){
     h += '<button class="btn gray" style="width:100%;margin-bottom:8px;" onclick="delBgBoardShot()">删除棋盘截图</button>';
   }
   h += '<button class="btn gray block" onclick="bgImportBoard()">导入棋盘截图</button>';
+  /* 图片比对模型状态 */
+  var imgSt=getImgHashStatus();
+  if(imgSt.minions>0){
+    h += '<div style="font-size:10px;color:var(--green);margin:6px 0 2px;">✓ 图片比对模型已就绪（'+imgSt.minions+' 随从），导入截图将优先通过图片比对识别</div>';
+  }else if(imgSt.loading){
+    h += '<div style="font-size:10px;color:var(--gold2);margin:6px 0 2px;">图片比对模型下载中…</div>';
+  }else{
+    h += '<div style="font-size:10px;color:var(--muted);margin:6px 0 2px;">图片比对模型未下载，当前使用 OCR 文字识别。下载后识别更准、无需 OCR 模型。</div>';
+    h += '<button class="btn green block" style="margin-top:4px;" onclick="loadMinionHashes(function(){render();toast(\'随从图片比对模型下载完成\');})">下载随从图片比对模型（1467张）</button>';
+  }
   h += '<div style="font-size:10px;color:var(--muted);margin:6px 0 2px;">提示：iOS 快捷指令截图后「分享」到本应用，可自动上传并智能识别随从阵容。</div>';
   h += '<button class="btn gray block" style="margin-top:6px;" onclick="showShortcutGuide()">导入 iOS 全自动快捷指令</button>';
   if(b.owned.length===0){
@@ -1667,6 +1677,11 @@ function battlegroundsView(){
     h += '<button class="btn gray" style="width:100%;margin-bottom:8px;" onclick="delBgOppShot()">删除截图</button>';
   }
   h += '<button class="btn gray block" onclick="bgImportOppShot()">导入对手截图</button>';
+  if(imgSt.minions>0){
+    h += '<div style="font-size:10px;color:var(--green);margin:4px 0 2px;">✓ 图片比对识别已启用</div>';
+  }else if(!imgSt.loading){
+    h += '<button class="btn green block" style="margin-top:4px;" onclick="loadMinionHashes(function(){render();toast(\'随从图片比对模型下载完成\');})">下载图片比对模型（识别更准）</button>';
+  }
   cur.minions=cur.minions||[];
   if(cur.minions.length){
     h += '<div style="font-size:10px;color:var(--muted);margin:8px 0 4px;">识别随从（'+cur.minions.length+'）：</div>';
@@ -1817,11 +1832,34 @@ function autoImportShot(dataURL, hint){
         var cur=b.opponents[b.oppIdx]; cur.shot=d; cur.turn=b.turn;
       }
       save(); render();
-      autoOCRMinions(d,side);
+      autoRecognizeMinions(d,side);
       return;
     }
     toast('请先进入酒馆战棋记牌界面再导入截图');
   });
+}
+/* 智能识别随从：优先图片比对（不依赖OCR），回退OCR */
+function autoRecognizeMinions(dataURL, side){
+  /* 如果随从图片比对模型已加载，纯图片比对识别（不依赖Tesseract） */
+  if(imgHashDB.loaded.minions){
+    toast('正在通过图片比对识别随从阵容…');
+    recognizeByImage(dataURL, 'minion', function(imgMatches){
+      var pool=(bgDB.loaded&&bgDB.minions.length)?bgDB.minions:bgPool;
+      /* 汉明距离<=40认为可能匹配，取前14个 */
+      var matched=imgMatches.filter(function(m){return (m.dist||99)<=42;}).map(function(m){
+        var mm=pool.find(function(x){return x.name===m.name;});
+        return mm||{name:m.name,cost:0,tribe:'',tier:1,a:1,h:1};
+      }).slice(0,14);
+      addMinionsToSide(matched, side, '', true);
+    });
+    return;
+  }
+  /* 英雄模型已加载但随从未加载：提示可下载随从模型 */
+  if(!imgHashDB.loaded.minions && !imgHashDB.loading){
+    toast('提示：可在设置页下载随从图片比对模型，识别更准且无需OCR');
+  }
+  /* 回退OCR */
+  autoOCRMinions(dataURL, side);
 }
 /* OCR自动识别随从并添加到我方/对手阵容 */
 function autoOCRMinions(dataURL, side){
