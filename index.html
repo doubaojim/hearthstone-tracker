@@ -752,7 +752,8 @@ function runHeroOCR(){
 function doHeroOCR(dataURL){
   toast('正在识别英雄名称（首次需下载中文模型）…');
   loadTesseract(function(){
-    Tesseract.recognize(dataURL,'chi_sim').then(function(res){
+    ocrRecognize(dataURL, function(res, err){
+      if(err){ toast(err); showManualHeroSelect(dataURL); return; }
       var text=(res&&res.data&&res.data.text)||'';
       var matched=matchHeroesFromText(text);
       state.bg.importHeroes=matched;
@@ -769,9 +770,6 @@ function doHeroOCR(dataURL){
         toast('未自动识别到英雄，可手动选择');
         showManualHeroSelect(dataURL);
       }
-    }).catch(function(e){
-      toast('识别失败：'+(e&&e.message?e.message:'可手动选择英雄'));
-      showManualHeroSelect(dataURL);
     });
   });
 }
@@ -856,6 +854,29 @@ function loadTesseract(cb){
   }
   toast('正在加载识别引擎…');
   tryLoad();
+}
+/* OCR中文模型备用源（国内可访问镜像优先） */
+var OCR_LANG_PATHS=[
+  'https://cdn.jsdelivr.net/gh/naptha/tessdata@gh-pages/4.0.0',
+  'https://fastly.jsdelivr.net/gh/naptha/tessdata@gh-pages/4.0.0',
+  'https://testingcf.jsdelivr.net/gh/naptha/tessdata@gh-pages/4.0.0',
+  'https://tessdata.projectnaptha.com/4.0.0'
+];
+/* 统一OCR识别：自动切换备用模型源 */
+function ocrRecognize(dataURL, cb){
+  function tryRecognize(idx){
+    if(idx>=OCR_LANG_PATHS.length){
+      cb(null, '中文OCR模型下载失败（所有备用源均不可用），请检查网络后重试，或直接手动选择');
+      return;
+    }
+    var langPath=OCR_LANG_PATHS[idx];
+    Tesseract.recognize(dataURL,'chi_sim',{langPath:langPath}).then(function(res){
+      cb(res, null);
+    }).catch(function(){
+      tryRecognize(idx+1);
+    });
+  }
+  tryRecognize(0);
 }
 function startBgMatch(){
   var b=state.bg;
@@ -1609,7 +1630,8 @@ function autoImportShot(dataURL, hint){
 function autoOCRMinions(dataURL, side){
   toast('正在识别截图中的随从阵容…');
   loadTesseract(function(){
-    Tesseract.recognize(dataURL,'chi_sim').then(function(res){
+    ocrRecognize(dataURL, function(res, err){
+      if(err){ toast(err); showManualMinionSelect(dataURL, side); return; }
       var text=(res&&res.data&&res.data.text)||'';
       var matched=matchMinionsFromText(text);
       var b=state.bg;
@@ -1635,9 +1657,6 @@ function autoOCRMinions(dataURL, side){
         toast('未自动识别到随从，可手动点选添加');
         showManualMinionSelect(dataURL, side);
       }
-    }).catch(function(e){
-      toast('识别失败：'+(e&&e.message?e.message:'可手动点选随从'));
-      showManualMinionSelect(dataURL, side);
     });
   });
 }
@@ -1732,11 +1751,16 @@ function preloadOCR(){
     toast('OCR 模型下载失败：'+(msg||'请检查网络后重试'));
   };
   function startWorker(){
-    try{
-      Tesseract.createWorker('chi_sim').then(function(worker){
-        worker.terminate(); done();
-      }).catch(function(e){ fail(e&&e.message?e.message:'模型加载失败'); });
-    }catch(e){ fail(e.message); }
+    var pathIdx=0;
+    function tryWorker(){
+      if(pathIdx>=OCR_LANG_PATHS.length){ fail('所有模型源均下载失败，请检查网络'); return; }
+      try{
+        Tesseract.createWorker('chi_sim', 1, {langPath:OCR_LANG_PATHS[pathIdx]}).then(function(worker){
+          worker.terminate(); done();
+        }).catch(function(){ pathIdx++; tryWorker(); });
+      }catch(e){ pathIdx++; tryWorker(); }
+    }
+    tryWorker();
   }
   loadTesseract(startWorker);
 }
@@ -2097,12 +2121,13 @@ function analyzeAndSaveShot(){
 }
 function runOCR(dataURL){
   toast('正在识别截图文字（首次需下载中文模型）…');
-  Tesseract.recognize(dataURL,'chi_sim').then(function(res){
+  ocrRecognize(dataURL, function(res, err){
+    if(err){ toast(err); if(pendingShot) showShotImportSheet(pendingShot); return; }
     var text=(res&&res.data&&res.data.text)||'';
     var matched=matchMinionsFromText(text);
     pendingOCRMinions=matched;
     showOCRResultSheet(dataURL, text, matched);
-  }).catch(function(){ toast('识别失败，可手动选择保存位置'); if(pendingShot) showShotImportSheet(pendingShot); });
+  });
 }
 function matchMinionsFromText(text){
   var pool=(bgDB.loaded&&bgDB.minions.length)?bgDB.minions:bgPool;
