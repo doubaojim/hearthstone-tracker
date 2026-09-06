@@ -925,7 +925,7 @@ function ocrRecognize(dataURL, cb){
    图片比对识别：感知哈希 aHash（8x8灰度，64位）
    ============================================================ */
 var imgHashDB={heroes:{},minions:{},loaded:{heroes:false,minions:false},loading:false};
-/* 计算感知哈希：8x8灰度，平均阈值，64位二进制 */
+/* 计算感知哈希：8x8灰度，平均阈值，16位十六进制（64位二进制压缩） */
 function computeAHash(img){
   try{
     var canvas=document.createElement('canvas');
@@ -936,13 +936,35 @@ function computeAHash(img){
     var gray=new Array(64);
     for(var i=0;i<64;i++){ gray[i]=(data[i*4]+data[i*4+1]+data[i*4+2])/3; }
     var avg=gray.reduce(function(s,v){return s+v;},0)/64;
-    var hash='';
-    for(var i=0;i<64;i++){ hash += gray[i]>=avg?'1':'0'; }
-    return hash;
+    var bits='';
+    for(var i=0;i<64;i++){ bits += gray[i]>=avg?'1':'0'; }
+    /* 转换为16位十六进制，减少75%存储空间 */
+    var hex='';
+    for(var i=0;i<64;i+=4){
+      hex += parseInt(bits.substr(i,4),2).toString(16);
+    }
+    return hex;
   }catch(e){ return null; }
 }
+/* 十六进制转二进制字符串 */
+function hexToBin(hex){
+  var bin='';
+  for(var i=0;i<hex.length;i++){
+    bin += parseInt(hex[i],16).toString(2).padStart(4,'0');
+  }
+  return bin;
+}
 function hammingDist(h1,h2){
-  if(!h1||!h2||h1.length!==h2.length) return 999;
+  if(!h1||!h2) return 999;
+  /* 十六进制哈希（长度16）：转换为二进制后逐位比较 */
+  if(h1.length===16 && h2.length===16){
+    var b1=hexToBin(h1), b2=hexToBin(h2);
+    var d=0;
+    for(var i=0;i<64;i++){ if(b1[i]!==b2[i]) d++; }
+    return d;
+  }
+  /* 兼容旧的二进制格式 */
+  if(h1.length!==h2.length) return 999;
   var d=0;
   for(var i=0;i<h1.length;i++){ if(h1[i]!==h2[i]) d++; }
   return d;
@@ -1057,8 +1079,10 @@ function recognizeByImage(dataURL, type, cb){
       var gray=new Array(64);
       for(var i=0;i<64;i++){ gray[i]=(data[i*4]+data[i*4+1]+data[i*4+2])/3; }
       var avg=gray.reduce(function(s,v){return s+v;},0)/64;
+      var bits2='';
+      for(var i=0;i<64;i++){ bits2 += gray[i]>=avg?'1':'0'; }
       var hash2='';
-      for(var i=0;i<64;i++){ hash2 += gray[i]>=avg?'1':'0'; }
+      for(var i=0;i<64;i+=4){ hash2 += parseInt(bits2.substr(i,4),2).toString(16); }
       var matches2=matchByHash(hash2, pool, 8);
       /* 合并两次结果，取交集优先，dist取较小值 */
       var score={}, distMap={};
@@ -1103,13 +1127,14 @@ function recognizeLeftOpponents(dataURL, cb){
         var g=new Array(64);
         for(var j=0;j<64;j++) g[j]=(d[j*4]+d[j*4+1]+d[j*4+2])/3;
         var avg=g.reduce(function(s,v){return s+v;},0)/64;
+        var bits='';
+        for(var j=0;j<64;j++) bits+=g[j]>=avg?'1':'0';
         var hash='';
-        for(var j=0;j<64;j++) hash+=g[j]>=avg?'1':'0';
-        /* 与英雄库比对，找最匹配 */
+        for(var j=0;j<64;j+=4) hash+=parseInt(bits.substr(j,4),2).toString(16);
+        /* 与英雄库比对，找最匹配（hammingDist已支持十六进制） */
         var bestName='', bestDist=999;
         for(var name in imgHashDB.heroes){
-          var dist=0;
-          for(var k=0;k<64;k++) if(hash[k]!==imgHashDB.heroes[name][k]) dist++;
+          var dist=hammingDist(hash, imgHashDB.heroes[name]);
           if(dist<bestDist){ bestDist=dist; bestName=name; }
         }
         results.push({index:i, name:bestName, dist:bestDist});
@@ -1154,12 +1179,13 @@ function recognizeTopOpponent(dataURL, cb){
       var g=new Array(64);
       for(var i=0;i<64;i++) g[i]=(d[i*4]+d[i*4+1]+d[i*4+2])/3;
       var avg=g.reduce(function(s,v){return s+v;},0)/64;
+      var bits='';
+      for(var i=0;i<64;i++) bits+=g[i]>=avg?'1':'0';
       var hash='';
-      for(var i=0;i<64;i++) hash+=g[i]>=avg?'1':'0';
+      for(var i=0;i<64;i+=4) hash+=parseInt(bits.substr(i,4),2).toString(16);
       var bestName='', bestDist=999;
       for(var name in imgHashDB.heroes){
-        var dist=0;
-        for(var k=0;k<64;k++) if(hash[k]!==imgHashDB.heroes[name][k]) dist++;
+        var dist=hammingDist(hash, imgHashDB.heroes[name]);
         if(dist<bestDist){ bestDist=dist; bestName=name; }
       }
       cb({name:bestName, dist:bestDist});
