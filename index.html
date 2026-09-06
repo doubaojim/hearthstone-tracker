@@ -1095,9 +1095,39 @@ function startBgMatch(){
   save(); render();
 }
 
-/* ============================================================
-   传统对局
-   ============================================================ */
+/* 识别截图顶部中间的当前对手英雄（酒馆战棋对战界面顶部对手头像） */
+function recognizeTopOpponent(dataURL, cb){
+  if(!imgHashDB.loaded.heroes){ cb(null); return; }
+  var img=new Image();
+  img.onload=function(){
+    var w=img.naturalWidth||img.width, h=img.naturalHeight||img.height;
+    /* 顶部中间对手英雄区域：x=38%~52%, y=7%~23% */
+    var sx=Math.floor(w*0.38), sy=Math.floor(h*0.07);
+    var sw=Math.floor(w*0.14), sh=Math.floor(h*0.16);
+    try{
+      var c8=document.createElement('canvas'); c8.width=8; c8.height=8;
+      var cx8=c8.getContext('2d');
+      cx8.drawImage(img, sx, sy, sw, sh, 0, 0, 8, 8);
+      var d=cx8.getImageData(0,0,8,8).data;
+      var g=new Array(64);
+      for(var i=0;i<64;i++) g[i]=(d[i*4]+d[i*4+1]+d[i*4+2])/3;
+      var avg=g.reduce(function(s,v){return s+v;},0)/64;
+      var hash='';
+      for(var i=0;i<64;i++) hash+=g[i]>=avg?'1':'0';
+      var bestName='', bestDist=999;
+      for(var name in imgHashDB.heroes){
+        var dist=0;
+        for(var k=0;k<64;k++) if(hash[k]!==imgHashDB.heroes[name][k]) dist++;
+        if(dist<bestDist){ bestDist=dist; bestName=name; }
+      }
+      cb({name:bestName, dist:bestDist});
+    }catch(e){
+      cb(null);
+    }
+  };
+  img.onerror=function(){ cb(null); };
+  img.src=dataURL;
+}
 function setupView(){
   var s = state.setup;
   var h='<div class="panel">';
@@ -1841,25 +1871,52 @@ function autoImportShot(dataURL, hint){
       recognizeLeftOpponents(d, function(oppHeroes){
         if(oppHeroes && oppHeroes.length){
           while(b.opponents.length<7) b.opponents.push({name:'',tribes:[],shot:null,defeated:false,turn:0,minions:[]});
-          /* 排除我方英雄（名称匹配 state.bg.hero.name） */
           var myHeroName = (b.hero && b.hero.name) ? b.hero.name : '';
           var filtered = oppHeroes.filter(function(oh){
             return oh.name && oh.name !== myHeroName && oh.dist<=25;
           });
-          var filled=0;
           filtered.slice(0,7).forEach(function(oh, i){
             b.opponents[i].name=oh.name;
-            filled++;
           });
           save(); render();
-          if(filled>0) toast('已识别左侧对手英雄 '+filled+' 位（排除我方英雄），填入导航栏');
         }
       });
-      /* 我方阵容和对手阵容均自动导入随从（对手导入到当前选中的导航栏槽位） */
-      autoRecognizeMinions(d,side);
-      if(side==='opp'){
-        toast('对手截图已保存，左侧对手英雄已识别填入导航栏；随从已导入当前对手阵容，可手动修正');
-      }
+      /* 识别顶部中间当前对手英雄，根据是否为莉莉安·辛恩决定导入策略 */
+      recognizeTopOpponent(d, function(topOpp){
+        if(topOpp && topOpp.name){
+          if(topOpp.name === '莉莉安·辛恩'){
+            /* 莉莉安·辛恩：不导入对手阵容导航栏，随从不导入对手阵容 */
+            toast('当前对手：'+topOpp.name+'（距离='+topOpp.dist+'），不导入导航栏，随从不自动导入');
+            if(side==='my'){
+              autoRecognizeMinions(d,side);
+            }
+          }else{
+            /* 其他对手：对应到导航栏中该英雄位置，将随从导入该对手阵容 */
+            var oppIdx = -1;
+            for(var i=0;i<b.opponents.length;i++){
+              if(b.opponents[i].name === topOpp.name){ oppIdx=i; break; }
+            }
+            if(oppIdx>=0){
+              b.oppIdx=oppIdx;
+              save(); render();
+              toast('当前对手：'+topOpp.name+'，已对应到导航栏第'+(oppIdx+1)+'位，随从导入该对手阵容');
+            }else{
+              toast('当前对手：'+topOpp.name+'（距离='+topOpp.dist+'），导航栏中未找到，随从导入当前选中槽位');
+            }
+            if(side==='opp'){
+              autoRecognizeMinions(d,side);
+            }else{
+              autoRecognizeMinions(d,side);
+            }
+          }
+        }else{
+          /* 未识别到顶部对手英雄，按原逻辑导入 */
+          autoRecognizeMinions(d,side);
+          if(side==='opp'){
+            toast('未识别到顶部对手英雄，随从导入当前选中槽位，可手动切换');
+          }
+        }
+      });
       return;
     }
     toast('请先进入酒馆战棋记牌界面再导入截图');
