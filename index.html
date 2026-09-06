@@ -957,26 +957,50 @@ function matchByHash(hash, pool, topN){
   return results.slice(0, topN||5);
 }
 /* 加载图片比对哈希库（从同源 img_hashes.json 加载，含英雄+随从） */
+var _imgHashWaiters=[]; /* 等待模型加载完成的回调队列 */
 function loadImgHashes(cb){
   if(imgHashDB.loaded.heroes && imgHashDB.loaded.minions){ cb&&cb(true); return; }
-  if(imgHashDB.loading){ cb&&cb(false); return; }
-  imgHashDB.loading=true; render();
-  /* 尝试从缓存加载（带版本检查） */
+  if(imgHashDB.loading){ if(cb) _imgHashWaiters.push(cb); return; } /* 正在加载，加入等待队列 */
+  imgHashDB.loading=true;
+  /* 尝试从 localStorage 缓存快速加载（优先用缓存，后台再检查更新） */
   try{
-    var cachedVer=localStorage.getItem('hs_imghash_ver');
     var cachedData=localStorage.getItem('hs_imghash_data');
-    if(cachedVer && cachedData){
+    if(cachedData){
       var d=JSON.parse(cachedData);
       imgHashDB.heroes=d.heroes||{};
       imgHashDB.minions=d.minions||{};
       imgHashDB.loaded.heroes=true;
       imgHashDB.loaded.minions=true;
       imgHashDB.loading=false;
-      render(); cb&&cb(true); return;
+      render();
+      /* 立即调用所有等待的回调 */
+      cb&&cb(true);
+      while(_imgHashWaiters.length){ _imgHashWaiters.shift()(true); }
+      /* 后台异步检查是否有新版本（不阻塞） */
+      fetch('./img_hashes.json',{cache:'default'}).then(function(r){
+        if(!r.ok) return null;
+        return r.json();
+      }).then(function(data){
+        if(!data) return;
+        var newVer=data.generated||'';
+        var oldVer=localStorage.getItem('hs_imghash_ver')||'';
+        if(newVer && newVer!==oldVer){
+          /* 有新版本，更新缓存和内存 */
+          imgHashDB.heroes=data.heroes||{};
+          imgHashDB.minions=data.minions||{};
+          try{
+            localStorage.setItem('hs_imghash_ver', newVer);
+            localStorage.setItem('hs_imghash_data', JSON.stringify({heroes:imgHashDB.heroes,minions:imgHashDB.minions}));
+          }catch(e){}
+          render();
+        }
+      }).catch(function(){});
+      return;
     }
   }catch(e){}
+  /* 无缓存：从网络加载（利用浏览器缓存） */
   toast('正在加载图片比对模型…');
-  fetch('./img_hashes.json',{cache:'no-cache'}).then(function(r){
+  fetch('./img_hashes.json',{cache:'default'}).then(function(r){
     if(!r.ok) throw new Error('HTTP '+r.status);
     return r.json();
   }).then(function(data){
@@ -991,11 +1015,15 @@ function loadImgHashes(cb){
     }catch(e){}
     render();
     toast('图片比对模型加载完成（'+Object.keys(imgHashDB.heroes).length+' 英雄 / '+Object.keys(imgHashDB.minions).length+' 随从）');
+    /* 调用所有等待的回调 */
     cb&&cb(true);
+    while(_imgHashWaiters.length){ _imgHashWaiters.shift()(true); }
   }).catch(function(e){
     imgHashDB.loading=false; render();
     toast('图片比对模型加载失败：'+(e&&e.message?e.message:'网络错误'));
+    /* 调用所有等待的回调（失败） */
     cb&&cb(false);
+    while(_imgHashWaiters.length){ _imgHashWaiters.shift()(false); }
   });
 }
 /* 兼容旧调用 */
