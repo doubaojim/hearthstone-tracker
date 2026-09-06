@@ -942,87 +942,51 @@ function matchByHash(hash, pool, topN){
   results.sort(function(a,b){return a.dist-b.dist;});
   return results.slice(0, topN||5);
 }
-/* 加载英雄头像哈希库（120张，自动下载计算） */
-function loadHeroHashes(cb){
-  if(imgHashDB.loaded.heroes){ cb&&cb(true); return; }
+/* 加载图片比对哈希库（从同源 img_hashes.json 加载，含英雄+随从） */
+function loadImgHashes(cb){
+  if(imgHashDB.loaded.heroes && imgHashDB.loaded.minions){ cb&&cb(true); return; }
   if(imgHashDB.loading){ cb&&cb(false); return; }
-  imgHashDB.loading=true;
-  var heroes=getHeroes().filter(function(h){return h.id;});
-  var done=0, total=heroes.length;
-  var checkDone=function(){
-    done++;
-    if(done>=total){
-      imgHashDB.loading=false;
-      imgHashDB.loaded.heroes=true;
-      try{ localStorage.setItem('hs_imghash_heroes', JSON.stringify(imgHashDB.heroes)); }catch(e){}
-      cb&&cb(true);
-    }
-  };
-  /* 尝试从缓存加载 */
+  imgHashDB.loading=true; render();
+  /* 尝试从缓存加载（带版本检查） */
   try{
-    var cached=localStorage.getItem('hs_imghash_heroes');
-    if(cached){
-      imgHashDB.heroes=JSON.parse(cached);
+    var cachedVer=localStorage.getItem('hs_imghash_ver');
+    var cachedData=localStorage.getItem('hs_imghash_data');
+    if(cachedVer && cachedData){
+      var d=JSON.parse(cachedData);
+      imgHashDB.heroes=d.heroes||{};
+      imgHashDB.minions=d.minions||{};
       imgHashDB.loaded.heroes=true;
-      imgHashDB.loading=false;
-      cb&&cb(true);
-      return;
-    }
-  }catch(e){}
-  toast('正在下载英雄图片比对模型（'+total+'张）…');
-  heroes.forEach(function(h){
-    var img=new Image();
-    img.crossOrigin='anonymous';
-    img.onload=function(){
-      var hash=computeAHash(img);
-      if(hash) imgHashDB.heroes[h.name]=hash;
-      checkDone();
-    };
-    img.onerror=function(){ checkDone(); };
-    img.src='https://art.hearthstonejson.com/v1/256x/'+h.id+'.webp';
-  });
-}
-/* 加载随从图片哈希库（1467张，可选，较大） */
-function loadMinionHashes(cb){
-  if(imgHashDB.loaded.minions){ cb&&cb(true); return; }
-  if(imgHashDB.loading){ cb&&cb(false); return; }
-  imgHashDB.loading=true;
-  var pool=(bgDB.loaded&&bgDB.minions.length)?bgDB.minions:bgPool;
-  var minions=pool.filter(function(m){return m.id;});
-  var done=0, total=minions.length;
-  var checkDone=function(){
-    done++;
-    if(done%100===0) toast('图片比对模型下载中… '+done+'/'+total);
-    if(done>=total){
-      imgHashDB.loading=false;
-      imgHashDB.loaded.minions=true;
-      try{ localStorage.setItem('hs_imghash_minions', JSON.stringify(imgHashDB.minions)); }catch(e){}
-      cb&&cb(true);
-    }
-  };
-  try{
-    var cached=localStorage.getItem('hs_imghash_minions');
-    if(cached){
-      imgHashDB.minions=JSON.parse(cached);
       imgHashDB.loaded.minions=true;
       imgHashDB.loading=false;
-      cb&&cb(true);
-      return;
+      render(); cb&&cb(true); return;
     }
   }catch(e){}
-  toast('正在下载随从图片比对模型（'+total+'张，较大，建议WiFi下进行）…');
-  minions.forEach(function(m){
-    var img=new Image();
-    img.crossOrigin='anonymous';
-    img.onload=function(){
-      var hash=computeAHash(img);
-      if(hash) imgHashDB.minions[m.name]=hash;
-      checkDone();
-    };
-    img.onerror=function(){ checkDone(); };
-    img.src='https://art.hearthstonejson.com/v1/256x/'+m.id+'.webp';
+  toast('正在加载图片比对模型…');
+  fetch('./img_hashes.json',{cache:'no-cache'}).then(function(r){
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    return r.json();
+  }).then(function(data){
+    imgHashDB.heroes=data.heroes||{};
+    imgHashDB.minions=data.minions||{};
+    imgHashDB.loaded.heroes=true;
+    imgHashDB.loaded.minions=true;
+    imgHashDB.loading=false;
+    try{
+      localStorage.setItem('hs_imghash_ver', data.generated||'');
+      localStorage.setItem('hs_imghash_data', JSON.stringify({heroes:imgHashDB.heroes,minions:imgHashDB.minions}));
+    }catch(e){}
+    render();
+    toast('图片比对模型加载完成（'+Object.keys(imgHashDB.heroes).length+' 英雄 / '+Object.keys(imgHashDB.minions).length+' 随从）');
+    cb&&cb(true);
+  }).catch(function(e){
+    imgHashDB.loading=false; render();
+    toast('图片比对模型加载失败：'+(e&&e.message?e.message:'网络错误'));
+    cb&&cb(false);
   });
 }
+/* 兼容旧调用 */
+function loadHeroHashes(cb){ loadImgHashes(cb); }
+function loadMinionHashes(cb){ loadImgHashes(cb); }
 /* 对截图进行图片比对识别，返回最匹配的英雄/随从 */
 function recognizeByImage(dataURL, type, cb){
   var pool = type==='hero' ? imgHashDB.heroes : imgHashDB.minions;
@@ -1622,7 +1586,7 @@ function battlegroundsView(){
     h += '<div style="font-size:10px;color:var(--gold2);margin:6px 0 2px;">图片比对模型下载中…</div>';
   }else{
     h += '<div style="font-size:10px;color:var(--muted);margin:6px 0 2px;">图片比对模型未下载，当前使用 OCR 文字识别。下载后识别更准、无需 OCR 模型。</div>';
-    h += '<button class="btn green block" style="margin-top:4px;" onclick="loadMinionHashes(function(){render();toast(\'随从图片比对模型下载完成\');})">下载随从图片比对模型（1467张）</button>';
+    h += '<button class="btn green block" style="margin-top:4px;" onclick="loadImgHashes(function(){render();toast(\'图片比对模型加载完成\');})">加载图片比对模型（识别更准）</button>';
   }
   h += '<div style="font-size:10px;color:var(--muted);margin:6px 0 2px;">提示：iOS 快捷指令截图后「分享」到本应用，可自动上传并智能识别随从阵容。</div>';
   h += '<button class="btn gray block" style="margin-top:6px;" onclick="showShortcutGuide()">导入 iOS 全自动快捷指令</button>';
@@ -1680,7 +1644,7 @@ function battlegroundsView(){
   if(imgSt.minions>0){
     h += '<div style="font-size:10px;color:var(--green);margin:4px 0 2px;">✓ 图片比对识别已启用</div>';
   }else if(!imgSt.loading){
-    h += '<button class="btn green block" style="margin-top:4px;" onclick="loadMinionHashes(function(){render();toast(\'随从图片比对模型下载完成\');})">下载图片比对模型（识别更准）</button>';
+    h += '<button class="btn green block" style="margin-top:4px;" onclick="loadImgHashes(function(){render();toast(\'图片比对模型加载完成\');})">加载图片比对模型（识别更准）</button>';
   }
   cur.minions=cur.minions||[];
   if(cur.minions.length){
@@ -2089,29 +2053,18 @@ function settingsView(){
   /* 图片比对模型 */
   h += '<div class="panel"><div class="panel-title"><span class="dot" style="background:var(--green)"></span>图片比对识别模型</div>';
   var imgSt=getImgHashStatus();
-  if(imgSt.heroes>0){
-    h += '<div class="kv"><span class="k">英雄模型</span><span class="v" style="color:var(--green)">已加载 '+imgSt.heroes+' 个</span></div>';
+  if(imgSt.heroes>0 || imgSt.minions>0){
+    h += '<div class="kv"><span class="k">模型状态</span><span class="v" style="color:var(--green)">已加载 '+imgSt.heroes+' 英雄 / '+imgSt.minions+' 随从</span></div>';
+    h += '<div style="font-size:10px;color:var(--muted);margin-top:8px;line-height:1.5;">截图识别将优先使用「图片感知哈希比对」，不依赖 OCR 模型，识别炉石艺术字体更准确。模型数据已缓存到本地，无需重复下载。</div>';
+    h += '<button class="btn gray block" style="margin-top:10px;" onclick="loadImgHashes(function(){render();toast(\'图片比对模型已更新\');})">重新加载 / 更新模型</button>';
+  }else if(imgSt.loading){
+    h += '<div style="font-size:11px;color:var(--gold2);margin-bottom:8px;">正在加载图片比对模型…</div>';
+    h += '<button class="btn gray block" disabled style="opacity:.6;cursor:not-allowed;">加载中…</button>';
   }else{
-    h += '<div class="kv"><span class="k">英雄模型</span><span class="v" style="color:var(--muted)">未下载</span></div>';
+    h += '<div class="kv"><span class="k">模型状态</span><span class="v" style="color:var(--muted)">未加载</span></div>';
+    h += '<div style="font-size:10px;color:var(--muted);margin-top:8px;line-height:1.5;">加载后截图识别将优先使用「图片感知哈希比对」，不依赖 OCR 模型，识别炉石艺术字体更准确。模型约 135KB，一次加载永久缓存。</div>';
+    h += '<button class="btn green block" style="margin-top:10px;" onclick="loadImgHashes(function(){render();toast(\'图片比对模型加载完成\');})">加载图片比对模型（120英雄+1467随从）</button>';
   }
-  if(imgSt.minions>0){
-    h += '<div class="kv"><span class="k">随从模型</span><span class="v" style="color:var(--green)">已加载 '+imgSt.minions+' 个</span></div>';
-  }else{
-    h += '<div class="kv"><span class="k">随从模型</span><span class="v" style="color:var(--muted)">未下载</span></div>';
-  }
-  h += '<div style="font-size:10px;color:var(--muted);margin-top:8px;line-height:1.5;">下载后截图识别将同时使用「OCR文字识别 + 图片感知哈希比对」，综合判断显著提高炉石艺术字体的识别准确率。英雄模型 120 张（推荐），随从模型 1467 张（较大，建议 WiFi 下下载）。</div>';
-  h += '<div class="settle-row" style="margin-top:10px;">';
-  if(imgSt.heroes>0){
-    h += '<button class="btn gray" style="flex:1;" onclick="loadHeroHashes(function(){render();toast(\'英雄模型已就绪\');})">重新下载英雄模型</button>';
-  }else{
-    h += '<button class="btn green" style="flex:1;" onclick="loadHeroHashes(function(){render();toast(\'英雄图片比对模型下载完成\');})">下载英雄模型（推荐）</button>';
-  }
-  if(imgSt.minions>0){
-    h += '<button class="btn gray" style="flex:1;" onclick="loadMinionHashes(function(){render();toast(\'随从模型已就绪\');})">重新下载随从模型</button>';
-  }else{
-    h += '<button class="btn blue" style="flex:1;" onclick="loadMinionHashes(function(){render();toast(\'随从图片比对模型下载完成\');})">下载随从模型</button>';
-  }
-  h += '</div>';
   h += '</div>';
 
   h += '<div class="panel"><div class="panel-title"><span class="dot" style="background:var(--blue)"></span>iOS 快捷指令</div>';
