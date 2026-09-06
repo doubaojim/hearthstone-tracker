@@ -750,6 +750,20 @@ function runHeroOCR(){
   doHeroOCR(b.importShot);
 }
 function doHeroOCR(dataURL){
+  /* 如果图片比对模型未加载，先加载模型（加载完成后自动重试识别） */
+  if(!imgHashDB.loaded.heroes){
+    toast('正在加载图片比对模型，请稍候…');
+    loadImgHashes(function(success){
+      if(success){
+        doHeroOCR(dataURL); /* 模型加载完成后重试 */
+      }else{
+        /* 模型加载失败，回退到OCR */
+        toast('图片比对模型加载失败，尝试OCR识别…');
+        doHeroOCROnly(dataURL);
+      }
+    });
+    return;
+  }
   /* 如果图片比对模型已加载，优先纯图片比对识别（不依赖Tesseract，速度快且稳定） */
   if(imgHashDB.loaded.heroes){
     toast('正在通过图片比对识别英雄…');
@@ -776,7 +790,9 @@ function doHeroOCR(dataURL){
     });
     return;
   }
-  /* 图片比对模型未加载：使用OCR识别 */
+}
+/* 纯OCR识别英雄（图片比对模型加载失败时的回退方案） */
+function doHeroOCROnly(dataURL){
   toast('正在识别英雄名称（首次需下载中文模型）…');
   loadTesseract(function(){
     ocrRecognize(dataURL, function(res, err){
@@ -2617,6 +2633,7 @@ load();
 loadCardDB(); /* 启动时后台自动连接/更新传统卡牌数据 */
 loadBGDB();   /* 启动时后台自动连接/更新酒馆战棋数据 */
 loadDeckDB(); /* 启动时后台自动连接/更新卡组库 */
+loadImgHashes(); /* 启动时后台自动加载图片比对模型（英雄+随从感知哈希） */
 signalFromURL(); /* 快捷指令带参打开时自动开始新对局（?hs=start） */
 receiveSharedShot(); /* 快捷指令截图分享到 PWA 后接收分析（?shared=1） */
 render();
