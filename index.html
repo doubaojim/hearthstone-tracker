@@ -740,7 +740,7 @@ function toggleImportHero(name){
   } else {
     if(!b.importMyHero) b.importMyHero=name;
     else if(b.importOppHeroes.length<6) b.importOppHeroes.push(name);
-    else toast('最多记录6位对手');
+    else toast('最多记录7位对手');
   }
   save(); render();
 }
@@ -1048,7 +1048,7 @@ function recognizeLeftOpponents(dataURL, cb){
     /* 左侧英雄区域：x=0~宽度5%，y=高度10%~80% */
     var leftW=Math.max(40, Math.floor(w*0.05));
     var topY=Math.floor(h*0.10), bottomY=Math.floor(h*0.80);
-    var regionH=bottomY-topY, count=7, eachH=Math.floor(regionH/count);
+    var regionH=bottomY-topY, count=8, eachH=Math.floor(regionH/count);
     var results=[];
     for(var i=0;i<count;i++){
       var sy=topY+i*eachH;
@@ -1086,9 +1086,9 @@ function startBgMatch(){
     var hx=getHeroes().find(function(x){return x.name===b.importMyHero;});
     b.hero=hx?hx:{name:b.importMyHero,hp:40,power:''};
   }
-  while(b.opponents.length<6) b.opponents.push({name:'',tribes:[],shot:null,defeated:false,turn:0,minions:[]});
+  while(b.opponents.length<7) b.opponents.push({name:'',tribes:[],shot:null,defeated:false,turn:0,minions:[]});
   b.importOppHeroes.forEach(function(nm,i){
-    if(i<6) b.opponents[i].name=nm;
+    if(i<7) b.opponents[i].name=nm;
   });
   b.importShot=null; b.importHeroes=[]; b.importMyHero=''; b.importOppHeroes=[];
   state.setupPhase=null; state.inMatch=true; state.matchMode='battlegrounds'; state.tab='constructed';
@@ -1665,10 +1665,10 @@ function battlegroundsView(){
 
   h += '<div class="panel">';
   h += '<div class="panel-title"><span class="dot" style="background:var(--blue)"></span>对手阵容';
-  h += '<span style="margin-left:auto;font-size:10px;color:var(--muted);">第 '+b.turn+' 回合 · 6 位</span></div>';
-  while(b.opponents.length<6) b.opponents.push({name:'',tribes:[],shot:null,defeated:false,turn:0,minions:[]});
+  h += '<span style="margin-left:auto;font-size:10px;color:var(--muted);">第 '+b.turn+' 回合 · 7 位</span></div>';
+  while(b.opponents.length<7) b.opponents.push({name:'',tribes:[],shot:null,defeated:false,turn:0,minions:[]});
   h += '<div class="seg" style="margin-bottom:8px;flex-wrap:wrap;">';
-  for(var _oi=0;_oi<6;_oi++){
+  for(var _oi=0;_oi<7;_oi++){
     var _oc=b.opponents[_oi];
     var _has=_oc.tribes.length>0||_oc.shot;
     var _label=_oc.name?esc(_oc.name):('对手'+(_oi+1));
@@ -1707,7 +1707,7 @@ function battlegroundsView(){
   h += '<button class="btn blue" style="flex:1;" onclick="addBgOpponent()">记录该对手</button>';
   h += '<button class="btn red" style="flex:1;" onclick="markBgOppDefeat()">'+(cur.defeated?'取消落败':'落败')+'</button>';
   h += '</div>';
-  h += '<div style="font-size:10px;color:var(--muted);margin-top:6px;">上方导航栏可分别记录 6 位对手的阵容与截图；「落败」标记你输给该对手。iOS 快捷指令截图后「分享」到本应用可自动上传并智能识别随从；识别率有限，可手动点选修正。</div>';
+  h += '<div style="font-size:10px;color:var(--muted);margin-top:6px;">上方导航栏可分别记录 7 位对手的阵容与截图；「落败」标记你输给该对手。iOS 快捷指令截图后「分享」到本应用可自动上传并智能识别随从；识别率有限，可手动点选修正。</div>';
   h += '</div>';
 
   h += '<button class="btn primary block" onclick="bgEndTurn()" style="margin-bottom:14px;">结束回合</button>';
@@ -1768,7 +1768,7 @@ function toggleTribe(t){ var b=state.bg; b.tribes[t]=!b.tribes[t]; render(); }
 function selBgOpp(i){ state.bg.oppIdx=i; render(); }
 function toggleBgOppTribe(t){
   var b=state.bg;
-  while(b.opponents.length<6) b.opponents.push({name:'',tribes:[],shot:null,defeated:false,turn:0,minions:[]});
+  while(b.opponents.length<7) b.opponents.push({name:'',tribes:[],shot:null,defeated:false,turn:0,minions:[]});
   var cur=b.opponents[b.oppIdx]; cur.tribes=cur.tribes||[];
   var k=cur.tribes.indexOf(t);
   if(k>-1){ cur.tribes.splice(k,1); } else { cur.tribes.push(t); }
@@ -1776,7 +1776,7 @@ function toggleBgOppTribe(t){
 }
 function addBgOpponent(){
   var b=state.bg;
-  while(b.opponents.length<6) b.opponents.push({name:'',tribes:[],shot:null,defeated:false,turn:0,minions:[]});
+  while(b.opponents.length<7) b.opponents.push({name:'',tribes:[],shot:null,defeated:false,turn:0,minions:[]});
   var cur=b.opponents[b.oppIdx]; cur.turn=b.turn;
   render();
 }
@@ -1833,23 +1833,26 @@ function autoImportShot(dataURL, hint){
       if(side==='my'){
         b.boardShot=d;
       }else{
-        while(b.opponents.length<6) b.opponents.push({name:'',tribes:[],shot:null,defeated:false,turn:0,minions:[]});
+        while(b.opponents.length<7) b.opponents.push({name:'',tribes:[],shot:null,defeated:false,turn:0,minions:[]});
         var cur=b.opponents[b.oppIdx]; cur.shot=d; cur.turn=b.turn;
       }
       save(); render();
-      /* 识别截图左侧对手英雄列表，分别填入对手阵容导航栏（前6位） */
+      /* 识别截图左侧8个英雄，排除我方英雄，剩余7个填入对手阵容导航栏 */
       recognizeLeftOpponents(d, function(oppHeroes){
         if(oppHeroes && oppHeroes.length){
-          while(b.opponents.length<6) b.opponents.push({name:'',tribes:[],shot:null,defeated:false,turn:0,minions:[]});
+          while(b.opponents.length<7) b.opponents.push({name:'',tribes:[],shot:null,defeated:false,turn:0,minions:[]});
+          /* 排除我方英雄（名称匹配 state.bg.hero.name） */
+          var myHeroName = (b.hero && b.hero.name) ? b.hero.name : '';
+          var filtered = oppHeroes.filter(function(oh){
+            return oh.name && oh.name !== myHeroName && oh.dist<=25;
+          });
           var filled=0;
-          oppHeroes.slice(0,6).forEach(function(oh, i){
-            if(oh.name && oh.dist<=25){
-              b.opponents[i].name=oh.name;
-              filled++;
-            }
+          filtered.slice(0,7).forEach(function(oh, i){
+            b.opponents[i].name=oh.name;
+            filled++;
           });
           save(); render();
-          if(filled>0) toast('已识别左侧对手英雄 '+filled+' 位，填入导航栏');
+          if(filled>0) toast('已识别左侧对手英雄 '+filled+' 位（排除我方英雄），填入导航栏');
         }
       });
       /* 我方阵容导入随从；对手阵容随从不自动导入（避免完整界面截图误识别） */
@@ -1920,7 +1923,7 @@ function addMinionsToSide(matched, side, text, useImg){
       if(mm.tribe) b.tribes[mm.tribe]=true;
     });
   }else{
-    while(b.opponents.length<6) b.opponents.push({name:'',tribes:[],shot:null,defeated:false,turn:0,minions:[]});
+    while(b.opponents.length<7) b.opponents.push({name:'',tribes:[],shot:null,defeated:false,turn:0,minions:[]});
     var cur=b.opponents[b.oppIdx]; cur.minions=cur.minions||[];
     matched.forEach(function(mm){
       cur.minions.push({name:mm.name,cost:mm.cost,tribe:mm.tribe||'',tier:mm.tier||1,a:mm.a||1,h:mm.h||1});
@@ -1977,7 +1980,7 @@ function addManualMinion(name){
     b.owned.push({name:mm.name,cost:mm.cost,tribe:mm.tribe||'',tier:mm.tier||1,a:mm.a||1,h:mm.h||1,sold:false,tripled:false});
     if(mm.tribe) b.tribes[mm.tribe]=true;
   }else{
-    while(b.opponents.length<6) b.opponents.push({name:'',tribes:[],shot:null,defeated:false,turn:0,minions:[]});
+    while(b.opponents.length<7) b.opponents.push({name:'',tribes:[],shot:null,defeated:false,turn:0,minions:[]});
     var cur=b.opponents[b.oppIdx]; cur.minions=cur.minions||[];
     cur.minions.push({name:mm.name,cost:mm.cost,tribe:mm.tribe||'',tier:mm.tier||1,a:mm.a||1,h:mm.h||1});
     if(mm.tribe && cur.tribes.indexOf(mm.tribe)<0) cur.tribes.push(mm.tribe);
@@ -2395,7 +2398,7 @@ function saveShotTo(side, useOCR){
         });
       }
     } else {
-      while(b.opponents.length<6) b.opponents.push({name:'',tribes:[],shot:null,defeated:false,turn:0,minions:[]});
+      while(b.opponents.length<7) b.opponents.push({name:'',tribes:[],shot:null,defeated:false,turn:0,minions:[]});
       var cur=b.opponents[b.oppIdx]; cur.shot=d; cur.turn=b.turn;
       if(useOCR && pendingOCRMinions.length){
         cur.minions=cur.minions||[];
