@@ -1101,9 +1101,9 @@ function recognizeTopOpponent(dataURL, cb){
   var img=new Image();
   img.onload=function(){
     var w=img.naturalWidth||img.width, h=img.naturalHeight||img.height;
-    /* 顶部中间对手英雄区域：x=38%~52%, y=7%~23% */
-    var sx=Math.floor(w*0.38), sy=Math.floor(h*0.07);
-    var sw=Math.floor(w*0.14), sh=Math.floor(h*0.16);
+    /* 顶部中间对手英雄区域：x=40%~49%, y=8%~18%（精确对准英雄头像） */
+    var sx=Math.floor(w*0.40), sy=Math.floor(h*0.08);
+    var sw=Math.floor(w*0.09), sh=Math.floor(h*0.10);
     try{
       var c8=document.createElement('canvas'); c8.width=8; c8.height=8;
       var cx8=c8.getContext('2d');
@@ -1124,6 +1124,31 @@ function recognizeTopOpponent(dataURL, cb){
     }catch(e){
       cb(null);
     }
+  };
+  img.onerror=function(){ cb(null); };
+  img.src=dataURL;
+}
+/* OCR识别截图左上角玩家名称（酒馆战棋对战界面左上角对手玩家名） */
+function recognizeOpponentName(dataURL, cb){
+  var img=new Image();
+  img.onload=function(){
+    var w=img.naturalWidth||img.width, h=img.naturalHeight||img.height;
+    /* 左上角玩家名称区域：x=0~15%, y=2%~6% */
+    var sx=0, sy=Math.floor(h*0.02);
+    var sw=Math.floor(w*0.15), sh=Math.floor(h*0.04);
+    try{
+      var c=document.createElement('canvas'); c.width=sw*2; c.height=sh*2;
+      var cx=c.getContext('2d');
+      cx.drawImage(img, sx, sy, sw, sh, 0, 0, sw*2, sh*2);
+      var nameDataURL=c.toDataURL('image/png');
+      ocrRecognize(nameDataURL, function(res, err){
+        if(err){ cb(null); return; }
+        var text=(res&&res.data&&res.data.text)||'';
+        /* 清洗：去除空格、换行、特殊字符 */
+        var name=text.replace(/[\s\n\r\t]/g,'').replace(/[^\u4e00-\u9fa5a-zA-Z0-9·]/g,'');
+        cb(name?name:null);
+      });
+    }catch(e){ cb(null); }
   };
   img.onerror=function(){ cb(null); };
   img.src=dataURL;
@@ -1881,40 +1906,34 @@ function autoImportShot(dataURL, hint){
           save(); render();
         }
       });
-      /* 识别顶部中间当前对手英雄，根据是否为莉莉安·辛恩决定导入策略 */
-      recognizeTopOpponent(d, function(topOpp){
-        if(topOpp && topOpp.name){
-          if(topOpp.name === '莉莉安·辛恩'){
-            /* 莉莉安·辛恩：不导入对手阵容导航栏，随从不导入对手阵容 */
-            toast('当前对手：'+topOpp.name+'（距离='+topOpp.dist+'），不导入导航栏，随从不自动导入');
-            if(side==='my'){
-              autoRecognizeMinions(d,side);
-            }
-          }else{
-            /* 其他对手：对应到导航栏中该英雄位置，将随从导入该对手阵容 */
-            var oppIdx = -1;
-            for(var i=0;i<b.opponents.length;i++){
-              if(b.opponents[i].name === topOpp.name){ oppIdx=i; break; }
-            }
-            if(oppIdx>=0){
-              b.oppIdx=oppIdx;
-              save(); render();
-              toast('当前对手：'+topOpp.name+'，已对应到导航栏第'+(oppIdx+1)+'位，随从导入该对手阵容');
-            }else{
-              toast('当前对手：'+topOpp.name+'（距离='+topOpp.dist+'），导航栏中未找到，随从导入当前选中槽位');
-            }
-            if(side==='opp'){
-              autoRecognizeMinions(d,side);
-            }else{
-              autoRecognizeMinions(d,side);
-            }
+      /* 优先OCR识别左上角玩家名称，根据是否为莉莉安·辛恩决定导入策略 */
+      recognizeOpponentName(d, function(oppName){
+        if(oppName && (oppName.indexOf('莉莉安')>=0 || oppName.indexOf('辛恩')>=0)){
+          /* 莉莉安·辛恩：不导入对手阵容导航栏，随从不导入对手阵容 */
+          toast('识别到对手玩家：'+oppName+'，不导入导航栏，随从不自动导入对手阵容');
+          if(side==='my'){
+            autoRecognizeMinions(d,side);
           }
         }else{
-          /* 未识别到顶部对手英雄，按原逻辑导入 */
-          autoRecognizeMinions(d,side);
-          if(side==='opp'){
-            toast('未识别到顶部对手英雄，随从导入当前选中槽位，可手动切换');
-          }
+          /* 其他玩家：识别顶部中间英雄头像，对应到导航栏，将随从导入该对手阵容 */
+          recognizeTopOpponent(d, function(topOpp){
+            if(topOpp && topOpp.name){
+              var oppIdx = -1;
+              for(var i=0;i<b.opponents.length;i++){
+                if(b.opponents[i].name === topOpp.name){ oppIdx=i; break; }
+              }
+              if(oppIdx>=0){
+                b.oppIdx=oppIdx;
+                save(); render();
+                toast('当前对手英雄：'+topOpp.name+'，已对应到导航栏第'+(oppIdx+1)+'位，随从导入该对手阵容');
+              }else{
+                toast('当前对手英雄：'+topOpp.name+'（距离='+topOpp.dist+'），导航栏中未找到，随从导入当前选中槽位');
+              }
+            }else{
+              toast('未识别到顶部对手英雄，随从导入当前选中槽位，可手动切换');
+            }
+            autoRecognizeMinions(d,side);
+          });
         }
       });
       return;
