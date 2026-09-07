@@ -780,12 +780,14 @@ function doHeroOCR(dataURL){
           if(state.bg.importOppHeroes.indexOf(matched[i].name)<0) state.bg.importOppHeroes.push(matched[i].name);
         }
       }
-      /* 识别英雄后：确保停留在棋盘导入界面（不自动进入记牌界面），由用户确认后手动点「进入记牌」 */
+      /* 识别英雄后：自动跳转到记牌界面 */
       state.setupPhase='bg';
-      save(); render();
+      save();
       if(matched.length>0){
-        toast('图片比对识别到 '+matched.length+' 个英雄，可点选修正；确认后点「进入记牌」');
+        toast('图片比对识别到 '+matched.length+' 个英雄，自动进入记牌…');
+        setTimeout(startBgMatch, 300); /* 短暂延迟后自动进入记牌界面 */
       }else{
+        render();
         toast('未识别到英雄，可手动选择');
         showManualHeroSelect(dataURL);
       }
@@ -807,12 +809,14 @@ function doHeroOCROnly(dataURL){
           if(state.bg.importOppHeroes.indexOf(ocrMatched[i].name)<0) state.bg.importOppHeroes.push(ocrMatched[i].name);
         }
       }
-      /* 识别英雄后：确保停留在棋盘导入界面（不自动进入记牌界面），由用户确认后手动点「进入记牌」 */
+      /* 识别英雄后：自动跳转到记牌界面 */
       state.setupPhase='bg';
-      save(); render();
+      save();
       if(ocrMatched.length>0){
-        toast('OCR识别到 '+ocrMatched.length+' 个英雄，可点选修正；确认后点「进入记牌」');
+        toast('OCR识别到 '+ocrMatched.length+' 个英雄，自动进入记牌…');
+        setTimeout(startBgMatch, 300); /* 短暂延迟后自动进入记牌界面 */
       }else{
+        render();
         if(err) toast(err); else toast('未自动识别到英雄，可手动选择');
         showManualHeroSelect(dataURL);
       }
